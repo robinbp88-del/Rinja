@@ -1,0 +1,140 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Dark-mode first. Values apply at :root so the app is always dark. */
+:root {
+  --radius: 1rem;
+
+  --background: oklch(0.14 0.015 285);
+  --foreground: oklch(0.98 0.005 285);
+
+  --card: oklch(0.19 0.02 285);
+  --card-foreground: oklch(0.98 0.005 285);
+
+  --popover: oklch(0.19 0.02 285);
+  --popover-foreground: oklch(0.98 0.005 285);
+
+  --primary: oklch(0.58 0.24 295);
+  --primary-foreground: oklch(0.99 0.005 285);
+
+  --secondary: oklch(0.24 0.02 285);
+  --secondary-foreground: oklch(0.98 0.005 285);
+
+  --muted: oklch(0.22 0.018 285);
+  --muted-foreground: oklch(0.68 0.02 285);
+
+  --accent: oklch(0.28 0.06 295);
+  --accent-foreground: oklch(0.98 0.005 285);
+
+  --destructive: oklch(0.65 0.22 25);
+  --destructive-foreground: oklch(0.98 0.005 285);
+
+  --border: oklch(1 0 0 / 7%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.58 0.24 295);
+
+  --glow: 0 0 0 3px oklch(0.58 0.24 295 / 0.35), 0 0 40px oklch(0.58 0.24 295 / 0.55);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+}
+
+@utility glow-ring {
+  box-shadow: var(--glow);
+  outline: 2px solid var(--color-primary);
+  border-radius: 12px;
+}
+
+@utility screen-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  padding-top: max(env(safe-area-inset-top), 0.5rem);
+}
+
+/* Rinja mascot animations */
+@keyframes rinja-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-5px) scale(1.01); }
+}
+@keyframes rinja-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+@keyframes rinja-dot {
+  0%, 100% { transform: translate(-90px, 0); }
+  50% { transform: translate(90px, 0); }
+}
+@keyframes rinja-wave {
+  0%, 100% { transform: translateY(-2px) rotate(0deg); }
+  25% { transform: translateY(-4px) rotate(-6deg); }
+  50% { transform: translateY(-2px) rotate(0deg); }
+  75% { transform: translateY(-4px) rotate(6deg); }
+}
+@keyframes rinja-glow {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.06); }
+}
+@keyframes rinja-scan {
+  0%, 100% { transform: translateX(-6px) rotate(-3deg); }
+  50% { transform: translateX(6px) rotate(3deg); }
+}
+@keyframes rinja-type {
+  0%, 100% { transform: translateY(0) rotate(-0.5deg); }
+  50% { transform: translateY(-2px) rotate(0.5deg); }
+}
+@keyframes rinja-lookup {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(0deg) scale(1.02); }
+}
+@keyframes rinja-sparkle {
+  0% { opacity: 0; transform: translate(0,0) scale(0.5); }
+  40% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--sx,10px), var(--sy,-14px)) scale(1); }
+}
