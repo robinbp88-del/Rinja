@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Eye } from "lucide-react";
-import { useStore } from "../lib/store";
+import { useAuth } from "../providers/AuthProvider";
 
 export const Route = createFileRoute("/")({
   component: Splash,
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
 
 function Splash() {
   const navigate = useNavigate();
-  const { onboarded } = useStore();
+  const { user, loading } = useAuth();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -18,12 +18,17 @@ function Splash() {
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || loading) return;
+
     const t = setTimeout(() => {
-      navigate({ to: onboarded ? "/home" : "/welcome", replace: true });
+      navigate({
+        to: user ? "/home" : "/welcome",
+        replace: true,
+      });
     }, 300);
+
     return () => clearTimeout(t);
-  }, [ready, onboarded, navigate]);
+  }, [ready, loading, user, navigate]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background">
@@ -33,9 +38,12 @@ function Splash() {
           <Eye className="h-10 w-10 text-primary-foreground" strokeWidth={2.4} />
         </div>
       </div>
+
       <div className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">WatchPage</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Never miss what matters.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Rinja</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Preparing your workspace...
+        </p>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Apple } from "lucide-react";
-import { useStore } from "../lib/store";
+
 import { RinjaMascot } from "../components/RinjaMascot";
 
 export const Route = createFileRoute("/welcome")({
@@ -9,16 +9,10 @@ export const Route = createFileRoute("/welcome")({
 
 function Welcome() {
   const navigate = useNavigate();
-  const { completeOnboarding } = useStore();
+  
 
   const signInGoogle = () => {
-    // Mocked auth. Real Google/Apple sign-in comes with Supabase.
-    completeOnboarding({
-      name: "You",
-      email: "you@example.com",
-      interests: [],
-    });
-    navigate({ to: "/interests" });
+    navigate({ to: "/login" });
   };
 
   return (

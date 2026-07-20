@@ -12,8 +12,8 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AuthProvider } from "../providers/AuthProvider";
 import { StoreProvider } from "../lib/store";
-
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-6">
@@ -94,13 +94,16 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
   return (
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
-        <div className="mx-auto max-w-md min-h-screen bg-background">
-          <Outlet />
-        </div>
-        <Toaster theme="dark" position="top-center" richColors />
+        <AuthProvider>
+          <div className="mx-auto max-w-md min-h-screen bg-background">
+            <Outlet />
+          </div>
+          <Toaster theme="dark" position="top-center" richColors />
+        </AuthProvider>
       </StoreProvider>
     </QueryClientProvider>
   );

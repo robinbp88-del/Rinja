@@ -14,6 +14,7 @@ import { Route as SearchRouteImport } from './routes/search'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as InterestsRouteImport } from './routes/interests'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HighlightRouteImport } from './routes/highlight'
@@ -45,6 +46,11 @@ const PremiumRoute = PremiumRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InterestsRoute = InterestsRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
   '/interests': typeof InterestsRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
   '/interests': typeof InterestsRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
   '/interests': typeof InterestsRoute
+  '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/highlight'
     | '/home'
     | '/interests'
+    | '/login'
     | '/notifications'
     | '/premium'
     | '/profile'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/highlight'
     | '/home'
     | '/interests'
+    | '/login'
     | '/notifications'
     | '/premium'
     | '/profile'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/highlight'
     | '/home'
     | '/interests'
+    | '/login'
     | '/notifications'
     | '/premium'
     | '/profile'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   HighlightRoute: typeof HighlightRoute
   HomeRoute: typeof HomeRoute
   InterestsRoute: typeof InterestsRoute
+  LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   PremiumRoute: typeof PremiumRoute
   ProfileRoute: typeof ProfileRoute
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/interests': {
@@ -281,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   HighlightRoute: HighlightRoute,
   HomeRoute: HomeRoute,
   InterestsRoute: InterestsRoute,
+  LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   PremiumRoute: PremiumRoute,
   ProfileRoute: ProfileRoute,
