@@ -63,7 +63,16 @@ const initial: State = {
 
 // Seed demo events (only if there are watches — computed lazily elsewhere)
 const StoreContext = createContext<Ctx | null>(null);
+function createId() {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
 
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<State>(initial);
   const [hydrated, setHydrated] = useState(false);
@@ -90,7 +99,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     addWatch: (w, opts) => {
       const watch: Watch = {
         ...w,
-        id: crypto.randomUUID(),
+        id: createId(),
         createdAt: Date.now(),
         paused: false,
       };
@@ -99,7 +108,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         watches: [watch, ...s.watches],
         events: [
           {
-            id: crypto.randomUUID(),
+            id: createId(),
             watchId: watch.id,
             title: opts?.eventTitle ?? "Now watching",
             body:

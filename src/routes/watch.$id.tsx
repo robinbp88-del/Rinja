@@ -1,6 +1,29 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Pause, Play, Trash2, Clock, Globe } from "lucide-react";
-import { useStore } from "../lib/store";
+import {
+  createFileRoute,
+  useNavigate,
+} from "@tanstack/react-router";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Pause,
+  Play,
+  Trash2,
+  Clock,
+  Globe,
+  Loader2,
+  RefreshCw,
+  type LucideIcon,
+} from "lucide-react";
+
+import {
+  deleteWatch,
+  getWatchById,
+  setWatchPaused,
+} from "../lib/watches";
 
 export const Route = createFileRoute("/watch/$id")({
   component: WatchDetail,
@@ -17,78 +40,279 @@ const FREQ_LABEL: Record<string, string> = {
 function WatchDetail() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
-  const { watches, togglePause, removeWatch } = useStore();
-  const w = watches.find((x) => x.id === id);
+  const queryClient = useQueryClient();
 
-  if (!w) {
+  const watchQuery = useQuery({
+    queryKey: ["watch", id],
+    queryFn: () => getWatchById(id),
+  });
+
+  const pauseMutation = useMutation({
+    mutationFn: ({
+      watchId,
+      paused,
+    }: {
+      watchId: string;
+      paused: boolean;
+    }) => setWatchPaused(watchId, paused),
+
+    onSuccess: async (updatedWatch) => {
+      queryClient.setQueryData(
+        ["watch", updatedWatch.id],
+        updatedWatch,
+      );
+
+      await queryClient.invalidateQueries({
+        queryKey: ["watches"],
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (watchId: string) => deleteWatch(watchId),
+
+    onSuccess: async () => {
+      queryClient.removeQueries({
+        queryKey: ["watch", id],
+      });
+
+      await queryClient.invalidateQueries({
+        queryKey: ["watches"],
+      });
+
+      navigate({
+        to: "/home",
+        replace: true,
+      });
+    },
+  });
+
+  if (watchQuery.isPending) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <p className="text-sm text-muted-foreground">This watch no longer exists.</p>
-        <button onClick={() => navigate({ to: "/home" })} className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading watch…
+        </div>
+      </div>
+    );
+  }
+
+  if (watchQuery.isError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <p className="text-sm font-medium">
+          I couldn't load this watch.
+        </p>
+
+        <p className="mt-2 text-xs text-muted-foreground">
+          {watchQuery.error instanceof Error
+            ? watchQuery.error.message
+            : "Unknown error"}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => watchQuery.refetch()}
+          className="mt-5 flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const watch = watchQuery.data;
+
+  if (!watch) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          This watch no longer exists.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/home" })}
+          className="mt-4 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+        >
           Home
         </button>
       </div>
     );
   }
 
+  const frequency =
+    FREQ_LABEL[watch.frequency ?? ""] ??
+    watch.frequency ??
+    "Not set";
+
+  const currentValue =
+    watch.current_value?.trim() || "No value yet";
+
+  const handlePause = () => {
+    if (pauseMutation.isPending) return;
+
+    pauseMutation.mutate({
+      watchId: watch.id,
+      paused: !watch.paused,
+    });
+  };
+
+  const handleDelete = () => {
+    if (deleteMutation.isPending) return;
+
+    const confirmed = window.confirm(
+      "Delete this watch permanently?",
+    );
+
+    if (confirmed) {
+      deleteMutation.mutate(watch.id);
+    }
+  };
+
   return (
     <div className="min-h-screen pb-16">
       <header className="flex items-center gap-3 px-4 pt-6 screen-safe">
-        <button onClick={() => navigate({ to: "/home" })} className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card">
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/home" })}
+          aria-label="Back"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
+        >
           <ArrowLeft className="h-4 w-4" />
         </button>
+
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs text-muted-foreground">{w.host}</p>
-          <p className="truncate text-sm font-medium">{w.label}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {watch.host ?? "Website"}
+          </p>
+
+          <p className="truncate text-sm font-medium">
+            {watch.label}
+          </p>
         </div>
-        <span className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-widest ${w.paused ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"}`}>
-          {w.paused ? "Paused" : "Live"}
+
+        <span
+          className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-widest ${
+            watch.paused
+              ? "bg-muted text-muted-foreground"
+              : "bg-primary/15 text-primary"
+          }`}
+        >
+          {watch.paused ? "Paused" : "Live"}
         </span>
       </header>
 
       <section className="mt-8 px-6 text-center">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Current value</p>
-        <p className="mt-2 text-4xl font-semibold tabular-nums tracking-tight">{w.currentValue}</p>
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+          Current value
+        </p>
+
+        <p className="mt-2 break-words text-4xl font-semibold tabular-nums tracking-tight">
+          {currentValue}
+        </p>
       </section>
 
       <section className="mt-8 px-6">
         <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-          <InfoRow icon={Globe} label="Website" value={w.host} />
-          <InfoRow icon={Clock} label="Frequency" value={FREQ_LABEL[w.frequency]} />
+          <InfoRow
+            icon={Globe}
+            label="Website"
+            value={watch.host ?? watch.url}
+          />
+
+          <InfoRow
+            icon={Clock}
+            label="Frequency"
+            value={frequency}
+          />
         </div>
       </section>
 
       <section className="mt-8 px-6">
-        <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">History</h3>
+        <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">
+          History
+        </h3>
+
         <div className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center">
-          <p className="text-sm text-muted-foreground">History will appear here after the first change.</p>
+          <p className="text-sm text-muted-foreground">
+            History will appear here after the first change.
+          </p>
         </div>
       </section>
 
+      {(pauseMutation.isError || deleteMutation.isError) && (
+        <section className="mt-5 px-6">
+          <p className="text-center text-sm text-destructive">
+            Something went wrong. Please try again.
+          </p>
+        </section>
+      )}
+
       <section className="mt-8 flex gap-2 px-6">
         <button
-          onClick={() => togglePause(w.id)}
-          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border bg-card py-3 text-sm font-medium"
+          type="button"
+          onClick={handlePause}
+          disabled={pauseMutation.isPending}
+          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-border bg-card py-3 text-sm font-medium disabled:opacity-60"
         >
-          {w.paused ? <><Play className="h-4 w-4" /> Resume</> : <><Pause className="h-4 w-4" /> Pause</>}
+          {pauseMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : watch.paused ? (
+            <>
+              <Play className="h-4 w-4" />
+              Resume
+            </>
+          ) : (
+            <>
+              <Pause className="h-4 w-4" />
+              Pause
+            </>
+          )}
         </button>
+
         <button
-          onClick={() => { removeWatch(w.id); navigate({ to: "/home" }); }}
-          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-destructive/40 bg-destructive/10 py-3 text-sm font-medium text-destructive"
+          type="button"
+          onClick={handleDelete}
+          disabled={deleteMutation.isPending}
+          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-destructive/40 bg-destructive/10 py-3 text-sm font-medium text-destructive disabled:opacity-60"
         >
-          <Trash2 className="h-4 w-4" /> Delete
+          {deleteMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <>
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </>
+          )}
         </button>
       </section>
     </div>
   );
 }
 
-function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center gap-3 px-4 py-4">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <span className="flex-1 text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+      <span className="flex-1 text-sm text-muted-foreground">
+        {label}
+      </span>
+
+      <span className="max-w-[55%] truncate text-right text-sm font-medium">
+        {value}
+      </span>
     </div>
   );
 }

@@ -1,31 +1,105 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRight, Crown, Palette, Settings, LifeBuoy, Shield, LogOut } from "lucide-react";
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+} from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import {
+  ChevronRight,
+  Crown,
+  Palette,
+  Settings,
+  LifeBuoy,
+  Shield,
+  LogOut,
+  Loader2,
+} from "lucide-react";
+
 import { BottomNav } from "../components/BottomNav";
 import { useStore } from "../lib/store";
+import { signOut } from "../lib/auth";
+import { useAuth } from "../providers/AuthProvider";
 
 export const Route = createFileRoute("/profile")({
   component: Profile,
 });
 
 function Profile() {
-  const { user, watches, logout } = useStore();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+
+  // Beholdes midlertidig mens resten av appen migreres til Supabase.
+  const { watches, logout: clearLocalStore } = useStore();
+
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+
+  const displayName =
+    authUser?.user_metadata?.name ??
+    authUser?.email?.split("@")[0] ??
+    "You";
+
+  const email = authUser?.email ?? "Signed in";
+
+  async function handleLogout() {
+    if (loggingOut) return;
+
+    try {
+      setLoggingOut(true);
+      setLogoutError("");
+
+      // Logger ut av den ekte Supabase-sesjonen.
+      await signOut();
+
+      // Tømmer gammel lokal prototype-data.
+      clearLocalStore();
+
+      // Fjerner watches og annen brukerdata fra React Query-cache.
+      queryClient.clear();
+
+      navigate({
+        to: "/welcome",
+        replace: true,
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+
+      setLogoutError(
+        error instanceof Error
+          ? error.message
+          : "Could not log out. Please try again.",
+      );
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <div className="min-h-screen pb-32">
       <header className="px-6 pt-12 screen-safe">
-        <h1 className="text-[28px] font-semibold tracking-tight">Profile</h1>
+        <h1 className="text-[28px] font-semibold tracking-tight">
+          Profile
+        </h1>
       </header>
 
       <section className="mt-6 px-6">
         <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/50 text-lg font-semibold text-primary-foreground">
-            {(user?.name?.[0] ?? "Y").toUpperCase()}
+            {displayName.charAt(0).toUpperCase()}
           </div>
+
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{user?.name ?? "You"}</p>
-            <p className="truncate text-xs text-muted-foreground">{user?.email ?? "signed in"}</p>
+            <p className="truncate text-sm font-medium">
+              {displayName}
+            </p>
+
+            <p className="truncate text-xs text-muted-foreground">
+              {email}
+            </p>
           </div>
+
           <span className="rounded-full bg-primary/15 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-primary">
             {watches.length} watching
           </span>
@@ -40,10 +114,17 @@ function Profile() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Crown className="h-5 w-5" />
           </div>
+
           <div className="flex-1">
-            <p className="text-sm font-semibold">Try WatchPage Premium</p>
-            <p className="text-xs text-muted-foreground">Unlimited watches. 7-day free trial.</p>
+            <p className="text-sm font-semibold">
+              Try Rinja Premium
+            </p>
+
+            <p className="text-xs text-muted-foreground">
+              Unlimited watches. 7-day free trial.
+            </p>
           </div>
+
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         </Link>
       </section>
@@ -59,11 +140,29 @@ function Profile() {
 
       <section className="mt-6 px-6">
         <button
-          onClick={() => { logout(); navigate({ to: "/", replace: true }); }}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card p-4 text-sm font-medium text-destructive"
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card p-4 text-sm font-medium text-destructive transition active:scale-[0.99] disabled:opacity-60"
         >
-          <LogOut className="h-4 w-4" /> Log out
+          {loggingOut ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Logging out…
+            </>
+          ) : (
+            <>
+              <LogOut className="h-4 w-4" />
+              Log out
+            </>
+          )}
         </button>
+
+        {logoutError && (
+          <p className="mt-3 text-center text-xs text-destructive">
+            {logoutError}
+          </p>
+        )}
       </section>
 
       <BottomNav />
@@ -72,14 +171,37 @@ function Profile() {
 }
 
 function Group({ children }: { children: React.ReactNode }) {
-  return <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">{children}</div>;
-}
-function Row({ icon: Icon, label, hint }: { icon: any; label: string; hint?: string }) {
   return (
-    <button className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-accent">
+    <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+      {children}
+    </div>
+  );
+}
+
+function Row({
+  icon: Icon,
+  label,
+  hint,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  hint?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-accent"
+    >
       <Icon className="h-4 w-4 text-muted-foreground" />
+
       <span className="flex-1 text-sm">{label}</span>
-      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+
+      {hint && (
+        <span className="text-xs text-muted-foreground">
+          {hint}
+        </span>
+      )}
+
       <ChevronRight className="h-4 w-4 text-muted-foreground" />
     </button>
   );

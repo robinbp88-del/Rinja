@@ -1,9 +1,19 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowUp, ChevronRight, TrendingDown, Bell } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowUp,
+  ChevronRight,
+  Bell,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
+
 import { BottomNav } from "../components/BottomNav";
-import { useStore } from "../lib/store";
 import { RinjaMascot } from "../components/RinjaMascot";
+import { useStore } from "../lib/store";
+import { getWatches } from "../lib/watches";
+import { useAuth } from "../providers/AuthProvider";
 import binoculars from "../assets/binoculars.png";
 
 export const Route = createFileRoute("/home")({
@@ -12,77 +22,127 @@ export const Route = createFileRoute("/home")({
 
 const SUGGESTIONS = [
   "RTX 5090",
-  "Nike Air Max 42",
-  "House in Bergen",
+  "iPhone 17 Pro",
+  "Nike Air Max 90",
   "Coldplay tickets",
 ];
 
-function timeAgo(ts: number) {
-  const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m} minute${m === 1 ? "" : "s"} ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} hour${h === 1 ? "" : "s"} ago`;
-  const d = Math.floor(h / 24);
-  return `${d} day${d === 1 ? "" : "s"} ago`;
+function timeAgo(value: string | number | null | undefined) {
+  if (!value) return "not checked yet";
+
+  const timestamp =
+    typeof value === "number" ? value : new Date(value).getTime();
+
+  if (Number.isNaN(timestamp)) return "recently";
+
+  const seconds = Math.max(
+    1,
+    Math.floor((Date.now() - timestamp) / 1000),
+  );
+
+  if (seconds < 60) return `${seconds}s ago`;
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 function Home() {
   const navigate = useNavigate();
-  const { user, watches, events } = useStore();
+  const { user: authUser } = useAuth();
+
+  // Events er fortsatt lokale frem til vi migrerer notifications.
+  const { events } = useStore();
+
   const [query, setQuery] = useState("");
 
+  const watchesQuery = useQuery({
+    queryKey: ["watches", authUser?.id],
+    queryFn: getWatches,
+    enabled: Boolean(authUser),
+  });
+
+  const watches = watchesQuery.data ?? [];
+
+  const displayName =
+    authUser?.user_metadata?.name ??
+    authUser?.email?.split("@")[0] ??
+    "You";
+
+  const profileInitial = displayName.charAt(0).toUpperCase();
+
   const submit = () => {
-    const q = query.trim();
-    if (!q) return;
-    if (/^https?:\/\//i.test(q)) {
-      navigate({ to: "/add", search: { url: q } as any });
-    } else {
-      navigate({ to: "/search", search: { q } as any });
+    const value = query.trim();
+    if (!value) return;
+
+    if (/^https?:\/\//i.test(value)) {
+      navigate({
+        to: "/add",
+        search: { url: value } as never,
+      });
+      return;
     }
+
+    navigate({
+      to: "/search",
+      search: { q: value } as never,
+    });
   };
 
   const hasQuery = query.trim().length > 0;
 
   return (
     <div className="min-h-screen pb-32">
-      {/* Top row: mascot + profile */}
       <header className="flex items-start justify-between px-6 pt-16 screen-safe">
-        <RinjaMascot variant="idle" size={310} priority className="-ml-6 -mt-6 shrink-0" />
+        <RinjaMascot
+          variant="idle"
+          size={310}
+          priority
+          className="-ml-6 -mt-6 shrink-0"
+        />
+
         <Link
           to="/profile"
           aria-label="Profile"
           className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold text-primary"
         >
-          {(user?.name?.[0] ?? "Y").toUpperCase()}
+          {profileInitial}
         </Link>
       </header>
 
-      {/* Heading */}
       <section className="mt-10 px-6">
         <h1 className="text-[36px] font-semibold leading-[1.1] tracking-tight">
           What should I keep an eye on?
         </h1>
       </section>
 
-      {/* Search field */}
       <section className="mt-10 px-6">
-        <div className="flex items-center gap-3 rounded-full border border-border bg-card pl-5 pr-2 py-2">
+        <div className="flex items-center gap-3 rounded-full border border-border bg-card py-2 pl-5 pr-2">
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
                 submit();
               }
             }}
             placeholder="Search or paste a webpage URL..."
             className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted-foreground"
           />
+
           <button
+            type="button"
             onClick={submit}
             aria-label="Send"
             disabled={!hasQuery}
@@ -96,10 +156,10 @@ function Home() {
           </button>
         </div>
 
-        {/* Suggestion chips */}
         <div className="mt-6 flex flex-wrap gap-2.5">
           {SUGGESTIONS.map((suggestion) => (
             <button
+              type="button"
               key={suggestion}
               onClick={() => setQuery(suggestion)}
               className="rounded-full border border-border bg-card px-4 py-2 text-[13px] text-muted-foreground transition hover:border-primary/40 hover:text-primary"
@@ -110,18 +170,49 @@ function Home() {
         </div>
       </section>
 
-      {/* Watching for you */}
       <section className="mt-14 px-6">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-[17px] font-semibold tracking-tight">Watching for you</h2>
-          {watches.length > 3 && (
-            <Link to="/search" search={{} as any} className="text-xs text-primary">
-              See all
-            </Link>
-          )}
+        <div className="flex items-center justify-between">
+          <h2 className="text-[17px] font-semibold tracking-tight">
+            Watching for you
+          </h2>
+
+          <button
+            type="button"
+            onClick={() => watchesQuery.refetch()}
+            disabled={watchesQuery.isFetching}
+            aria-label="Refresh watches"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-card hover:text-primary disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${
+                watchesQuery.isFetching ? "animate-spin" : ""
+              }`}
+            />
+          </button>
         </div>
 
-        {watches.length === 0 ? (
+        {watchesQuery.isLoading ? (
+          <div className="mt-6 flex min-h-36 items-center justify-center rounded-3xl border border-border bg-card/40">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading watches…
+            </div>
+          </div>
+        ) : watchesQuery.isError ? (
+          <div className="mt-6 rounded-3xl border border-destructive/40 bg-destructive/10 p-6 text-center">
+            <p className="text-sm font-medium">
+              I couldn't load your watches.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => watchesQuery.refetch()}
+              className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              Try again
+            </button>
+          </div>
+        ) : watches.length === 0 ? (
           <div className="mt-6 rounded-3xl border border-dashed border-border bg-card/40 p-10 text-center">
             <img
               src={binoculars}
@@ -131,63 +222,60 @@ function Home() {
               loading="lazy"
               className="mx-auto h-20 w-20 opacity-90"
             />
+
             <p className="mt-4 text-[15px] font-medium">I'm ready.</p>
+
             <p className="mt-1 text-[13px] text-muted-foreground">
               Tell me what to watch.
             </p>
           </div>
         ) : (
           <div className="mt-6 space-y-3">
-            {watches.slice(0, 4).map((w) => {
-              const latest = events.find((e) => e.watchId === w.id);
-              const changed = latest && latest.title !== "Now watching";
-              return (
-                <Link
-                  key={w.id}
-                  to="/watch/$id"
-                  params={{ id: w.id }}
-                  className="flex items-center gap-4 rounded-3xl border border-border bg-card p-4 transition active:scale-[0.99]"
-                >
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-[13px] font-semibold text-primary">
-                    {w.host.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold">{w.label}</p>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      {w.paused ? (
-                        <span className="text-[12px] text-muted-foreground">Paused</span>
-                      ) : changed ? (
-                        <>
-                          <TrendingDown className="h-3.5 w-3.5 text-primary" />
-                          <span className="text-[12px] font-medium text-primary">
-                            {latest!.title}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-[12px] text-muted-foreground">No changes</span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      Checked {timeAgo(latest?.createdAt ?? w.createdAt)}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </Link>
-              );
-            })}
+            {watches.slice(0, 4).map((watch) => (
+              <Link
+                key={watch.id}
+                to="/watch/$id"
+                params={{ id: watch.id }}
+                className="flex items-center gap-4 rounded-3xl border border-border bg-card p-4 transition active:scale-[0.99]"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-[13px] font-semibold text-primary">
+                  {(watch.host ?? "WE").slice(0, 2).toUpperCase()}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold">
+                    {watch.label}
+                  </p>
+
+                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                    {watch.paused ? "Paused" : "No changes"}
+                  </p>
+
+                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                    Checked{" "}
+                    {timeAgo(watch.last_checked ?? watch.created_at)}
+                  </p>
+                </div>
+
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+            ))}
           </div>
         )}
       </section>
 
-      {/* Recent alerts hint */}
-      {events.some((e) => !e.read) && (
+      {events.some((event) => !event.read) && (
         <section className="mt-8 px-6">
           <Link
             to="/notifications"
             className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-3.5"
           >
             <Bell className="h-4 w-4 text-primary" />
-            <span className="flex-1 text-[13px] font-medium">You have new alerts</span>
+
+            <span className="flex-1 text-[13px] font-medium">
+              You have new alerts
+            </span>
+
             <ChevronRight className="h-4 w-4 text-primary" />
           </Link>
         </section>

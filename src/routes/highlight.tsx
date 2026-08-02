@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import { useStore, hostFromUrl, type WatchMode } from "../lib/store";
+import { createWatch } from "../lib/watches";
 import rinja from "../assets/rinja.png";
 
 const searchSchema = z.object({ url: z.string().url() });
@@ -94,12 +95,27 @@ function Highlight() {
   const kind = detectKind(selection);
   const options = useMemo(() => optionsFor(kind), [kind]);
 
-  const save = () => {
-    if (!selection || saveState !== "idle") return;
-    setSaveState("saving");
-    const label = labelFor(kind, mode, selection.text);
-    const value = selection.text || selection.html.slice(0, 80);
+  const save = async () => {
+  if (!selection || saveState !== "idle") return;
 
+  setSaveState("saving");
+
+  const label = labelFor(kind, mode, selection.text);
+  const value = selection.text || selection.html.slice(0, 80);
+
+  try {
+    await createWatch({
+      url,
+      host,
+      title: pageTitle || host,
+      label,
+      currentValue: value,
+      selector: selection.selector,
+      mode,
+      frequency: "15m",
+    });
+
+    // Behold lokal lagring midlertidig, slik at watchen vises direkte på Home.
     addWatch(
       {
         url,
@@ -119,16 +135,25 @@ function Highlight() {
 
     if (navigator.vibrate) navigator.vibrate(10);
 
+    setSaveState("done");
+    post("mark");
+
     setTimeout(() => {
-      setSaveState("done");
-      post("mark");
-      setTimeout(() => {
-        setSelection(null);
-        setSaveState("idle");
-        setPicking(false);
-      }, 850);
-    }, 550);
-  };
+      setSelection(null);
+      setSaveState("idle");
+      setPicking(false);
+      navigate({ to: "/home" });
+    }, 850);
+  } catch (error) {
+    console.error("Could not save watch:", error);
+    setSaveState("idle");
+
+    const message =
+      error instanceof Error ? error.message : "Could not save the watch.";
+
+    window.alert(message);
+  }
+};
 
   const src = `/api/proxy?url=${encodeURIComponent(url)}`;
 
