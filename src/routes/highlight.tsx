@@ -12,19 +12,21 @@ import {
   Image as ImageIcon,
   Sparkles,
   Settings2,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { z } from "zod";
 
-import {
-  useStore,
-  hostFromUrl,
-  type WatchMode,
-} from "../lib/store";
+import { hostFromUrl } from "../lib/store";
+
+type WatchMode = "price" | "stock" | "text" | "image" | "any" | "custom";
 import {
   createWatch,
   getWatchById,
   updateWatchSelection,
 } from "../lib/watches";
+import { createStartedNotification } from "../lib/notifications";
+import { requireAuth } from "../lib/requireAuth";
 import rinja from "../assets/rinja.png";
 
 const searchSchema = z.object({
@@ -34,6 +36,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/highlight")({
+  beforeLoad: requireAuth,
   validateSearch: (search) => searchSchema.parse(search),
   component: Highlight,
 });
@@ -56,7 +59,6 @@ function Highlight() {
   } = Route.useSearch();
 
   const navigate = useNavigate();
-  const { addWatch } = useStore();
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [ready, setReady] = useState(false);
@@ -64,6 +66,7 @@ function Highlight() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [picking, setPicking] = useState(false);
   const [mode, setMode] = useState<WatchMode>("any");
+  const [notify, setNotify] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [resolvedSelector, setResolvedSelector] = useState(
     searchSelector ?? "",
@@ -240,9 +243,10 @@ function Highlight() {
           elementTag: selection.tag,
           elementHtml: selection.html,
           mode,
+          notify,
         });
       } else {
-        await createWatch({
+        const created = await createWatch({
           url,
           host,
           title: pageTitle || host,
@@ -254,24 +258,16 @@ function Highlight() {
           elementHtml: selection.html,
           mode,
           frequency: "15m",
+          notify,
         });
 
-        addWatch(
-          {
-            url,
-            host,
-            title: pageTitle || host,
+        if (notify) {
+          await createStartedNotification({
+            watchId: created.id,
             label,
-            currentValue: value,
-            frequency: "15m",
-            selector: selection.selector,
-            mode,
-          } as never,
-          {
-            eventTitle: "I'm watching",
-            eventBody: `👀 On it — ${label} · ${host}`,
-          },
-        );
+            host,
+          });
+        }
       }
 
       if (navigator.vibrate) {
@@ -475,6 +471,33 @@ function Highlight() {
                   );
                 })}
               </div>
+
+              <button
+                type="button"
+                disabled={saveState !== "idle"}
+                onClick={() => setNotify((value) => !value)}
+                className={`mt-4 flex h-12 w-full items-center gap-3 rounded-2xl border px-4 text-left transition ${
+                  notify
+                    ? "border-primary/40 bg-primary/10"
+                    : "border-border bg-background/40"
+                }`}
+              >
+                {notify ? (
+                  <Bell className="h-4 w-4 shrink-0 text-primary" />
+                ) : (
+                  <BellOff className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                <span className="flex-1">
+                  <span className="block text-[13px] font-medium">
+                    {notify ? "Alerts on" : "Alerts off"}
+                  </span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    {notify
+                      ? "I'll notify you when this changes"
+                      : "I'll watch quietly — no alerts"}
+                  </span>
+                </span>
+              </button>
 
               <button
                 type="button"

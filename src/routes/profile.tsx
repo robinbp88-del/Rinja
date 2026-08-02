@@ -19,9 +19,13 @@ import {
 import { BottomNav } from "../components/BottomNav";
 import { useStore } from "../lib/store";
 import { signOut } from "../lib/auth";
+import { getWatches } from "../lib/watches";
 import { useAuth } from "../providers/AuthProvider";
+import { useQuery } from "@tanstack/react-query";
+import { requireAuth } from "../lib/requireAuth";
 
 export const Route = createFileRoute("/profile")({
+  beforeLoad: requireAuth,
   component: Profile,
 });
 
@@ -30,8 +34,15 @@ function Profile() {
   const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
 
-  // Beholdes midlertidig mens resten av appen migreres til Supabase.
-  const { watches, logout: clearLocalStore } = useStore();
+  const { logout: clearLocalStore } = useStore();
+
+  const watchesQuery = useQuery({
+    queryKey: ["watches", authUser?.id],
+    queryFn: getWatches,
+    enabled: Boolean(authUser),
+  });
+
+  const watchCount = watchesQuery.data?.length ?? 0;
 
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -101,7 +112,7 @@ function Profile() {
           </div>
 
           <span className="rounded-full bg-primary/15 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-primary">
-            {watches.length} watching
+            {watchCount} watching
           </span>
         </div>
       </section>

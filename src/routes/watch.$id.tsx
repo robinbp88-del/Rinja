@@ -17,16 +17,21 @@ import {
   Loader2,
   RefreshCw,
   ExternalLink,
+  Bell,
+  BellOff,
   type LucideIcon,
 } from "lucide-react";
 
 import {
   deleteWatch,
   getWatchById,
+  setWatchNotify,
   setWatchPaused,
 } from "../lib/watches";
+import { requireAuth } from "../lib/requireAuth";
 
 export const Route = createFileRoute("/watch/$id")({
+  beforeLoad: requireAuth,
   component: WatchDetail,
 });
 
@@ -56,6 +61,27 @@ function WatchDetail() {
       watchId: string;
       paused: boolean;
     }) => setWatchPaused(watchId, paused),
+
+    onSuccess: async (updatedWatch) => {
+      queryClient.setQueryData(
+        ["watch", updatedWatch.id],
+        updatedWatch,
+      );
+
+      await queryClient.invalidateQueries({
+        queryKey: ["watches"],
+      });
+    },
+  });
+
+  const notifyMutation = useMutation({
+    mutationFn: ({
+      watchId,
+      notify,
+    }: {
+      watchId: string;
+      notify: boolean;
+    }) => setWatchNotify(watchId, notify),
 
     onSuccess: async (updatedWatch) => {
       queryClient.setQueryData(
@@ -152,12 +178,23 @@ function WatchDetail() {
   const currentValue =
     watch.current_value?.trim() || "No value yet";
 
+  const alertsOn = watch.notify !== false;
+
   const handlePause = () => {
     if (pauseMutation.isPending) return;
 
     pauseMutation.mutate({
       watchId: watch.id,
       paused: !watch.paused,
+    });
+  };
+
+  const handleNotify = () => {
+    if (notifyMutation.isPending) return;
+
+    notifyMutation.mutate({
+      watchId: watch.id,
+      notify: !alertsOn,
     });
   };
 
@@ -240,10 +277,37 @@ function WatchDetail() {
             label="Frequency"
             value={frequency}
           />
+
+          <InfoRow
+            icon={alertsOn ? Bell : BellOff}
+            label="Alerts"
+            value={alertsOn ? "On" : "Off"}
+          />
         </div>
       </section>
 
       <section className="mt-6 px-6">
+        <button
+          type="button"
+          onClick={handleNotify}
+          disabled={notifyMutation.isPending}
+          className="mb-3 flex h-12 w-full items-center justify-center gap-2 rounded-full border border-border bg-card text-sm font-medium disabled:opacity-60"
+        >
+          {notifyMutation.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : alertsOn ? (
+            <>
+              <BellOff className="h-4 w-4" />
+              Turn alerts off
+            </>
+          ) : (
+            <>
+              <Bell className="h-4 w-4" />
+              Turn alerts on
+            </>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={handleOpenWebsite}

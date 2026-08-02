@@ -1,19 +1,20 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Check, ExternalLink, Eye, Search as SearchIcon } from "lucide-react";
+import { ArrowLeft, ExternalLink, Eye, Search as SearchIcon } from "lucide-react";
 import { z } from "zod";
 
 import { BottomNav } from "../components/BottomNav";
-import { useStore, hostFromUrl } from "../lib/store";
 import { isUrl, type SearchResponse, type SearchResult } from "../lib/search";
 import { intelligentSearch } from "../lib/search.functions";
 import { useServerFn } from "@tanstack/react-start";
 
 import { RinjaMascot } from "../components/RinjaMascot";
+import { requireAuth } from "../lib/requireAuth";
 
 const searchSchema = z.object({ q: z.string().optional() });
 
 export const Route = createFileRoute("/search")({
+  beforeLoad: requireAuth,
   validateSearch: (s) => searchSchema.parse(s),
   component: SearchPage,
 });
@@ -55,25 +56,15 @@ const SIGNALS: Record<string, string[]> = {
 
 function ResultCard({
   r,
-  tracked,
-  glowing,
   onTrack,
 }: {
   r: SearchResult;
-  tracked: boolean;
-  glowing: boolean;
   onTrack: () => void;
 }) {
   const avail = availabilityText(r);
   void SIGNALS;
   return (
-    <div
-      className={`rounded-3xl border bg-card p-4 transition-all duration-500 ${
-        glowing
-          ? "border-primary/60 shadow-[0_0_0_4px_oklch(0.58_0.24_295_/_0.18),0_0_32px_oklch(0.58_0.24_295_/_0.45)]"
-          : "border-border shadow-none"
-      }`}
-    >
+    <div className="rounded-3xl border border-border bg-card p-4 transition-all duration-500">
       <div className="flex items-start gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-primary/15 text-[13px] font-semibold text-primary">
           {r.image ? (
@@ -124,46 +115,11 @@ function ResultCard({
         </a>
         <button
           onClick={onTrack}
-          disabled={tracked}
-          className={`relative flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-sm font-semibold transition-all duration-300 active:scale-[0.98] ${
-            tracked
-              ? "border border-primary/40 bg-primary/10 text-primary"
-              : "bg-primary text-primary-foreground"
-          }`}
+          className="relative flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-all duration-300 active:scale-[0.98]"
         >
-          {tracked ? (
-            <>
-              <Check className="h-4 w-4 animate-scale-in" strokeWidth={2.8} /> Watching
-            </>
-          ) : (
-            <>
-              <Eye className="h-4 w-4" strokeWidth={2.6} /> Track
-            </>
-          )}
-          {glowing && (
-            <span aria-hidden className="pointer-events-none absolute inset-0">
-              <span
-                className="absolute left-3 top-2 h-1.5 w-1.5 rounded-full bg-primary"
-                style={{ animation: "rinja-sparkle 900ms ease-out forwards", ["--sx" as any]: "-12px", ["--sy" as any]: "-18px" }}
-              />
-              <span
-                className="absolute right-4 top-3 h-1 w-1 rounded-full bg-primary"
-                style={{ animation: "rinja-sparkle 900ms ease-out 120ms forwards", ["--sx" as any]: "14px", ["--sy" as any]: "-14px" }}
-              />
-              <span
-                className="absolute right-6 bottom-2 h-1 w-1 rounded-full bg-primary"
-                style={{ animation: "rinja-sparkle 900ms ease-out 220ms forwards", ["--sx" as any]: "10px", ["--sy" as any]: "16px" }}
-              />
-            </span>
-          )}
+          <Eye className="h-4 w-4" strokeWidth={2.6} /> Track
         </button>
       </div>
-
-      {tracked && (
-        <p className="mt-3 text-[12px] font-medium text-primary animate-fade-in">
-          I'll keep an eye on it.
-        </p>
-      )}
     </div>
   );
 }
@@ -198,7 +154,7 @@ function LoadingState() {
           }}
         />
       </div>
-      <RinjaMascot variant="binoculars" size={160} className="-mt-2" />
+      <RinjaMascot variant="binoculars" mood="curious" size={168} className="-mt-2" />
       <p
         key={step}
         className="mt-6 min-h-[22px] text-[15px] font-medium animate-fade-in"
@@ -212,7 +168,6 @@ function LoadingState() {
 function SearchPage() {
   const { q: initialQ } = Route.useSearch();
   const navigate = useNavigate();
-  const { addWatch } = useStore();
   const search = useServerFn(intelligentSearch);
 
   const [q, setQ] = useState(initialQ ?? "");
@@ -220,7 +175,6 @@ function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
-  const [tracked, setTracked] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const query = submittedQ.trim();
@@ -256,55 +210,17 @@ function SearchPage() {
 
   const submit = () => setSubmittedQ(q);
 
-  const [glowing, setGlowing] = useState<Set<string>>(new Set());
-
-  const naturalEvent = (r: SearchResult, host: string) => {
-    switch (r.intent) {
-      case "product":
-        return `👀 Rinja is now watching ${r.title} on ${r.source}. I'll let you know when the price or stock changes.`;
-      case "price":
-        return `👀 Watching ${r.title}. I'll ping you when the price moves.`;
-      case "availability":
-        return `👀 I'll tell you when ${r.title} is back in stock.`;
-      case "ticket":
-        return `👀 You're now following ${r.title}. I'll ping you when tickets or prices change.`;
-      case "house":
-        return `👀 Watching homes like ${r.title}. I'll tell you when new listings appear.`;
-      case "job":
-        return `👀 Watching for new roles like ${r.title}.`;
-      case "travel":
-        return `👀 Watching ${r.title}. I'll let you know when the price changes.`;
-      default:
-        return `👀 Rinja is now watching ${r.title} on ${host}.`;
-    }
-  };
-
   const track = (r: SearchResult) => {
-    const host = hostFromUrl(r.url);
-    addWatch(
-      {
-        url: r.url,
-        host,
-        title: `${r.source} · ${r.title}`,
-        label: r.title,
-        currentValue: r.price ?? (r.availability === "out_of_stock" ? "Out of stock" : "Watching"),
-        frequency: "15m",
-      } as any,
-      { eventTitle: "Now watching", eventBody: naturalEvent(r, host) },
-    );
-    setTracked((s) => new Set(s).add(r.id));
-    setGlowing((s) => new Set(s).add(r.id));
-    // Light haptic on supported devices
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      try { navigator.vibrate?.(12); } catch {}
+      try {
+        navigator.vibrate?.(12);
+      } catch {}
     }
-    setTimeout(() => {
-      setGlowing((s) => {
-        const next = new Set(s);
-        next.delete(r.id);
-        return next;
-      });
-    }, 1100);
+
+    navigate({
+      to: "/highlight",
+      search: { url: r.url } as never,
+    });
   };
 
   const heading = response ? INTENT_LABEL[response.intent] ?? "Results" : "Search";
@@ -357,8 +273,6 @@ function SearchPage() {
               <ResultCard
                 key={r.id}
                 r={r}
-                tracked={tracked.has(r.id)}
-                glowing={glowing.has(r.id)}
                 onTrack={() => track(r)}
               />
             ))}
@@ -389,7 +303,7 @@ function SearchPage() {
 
       {!loading && !response && (
         <section className="mt-10 flex flex-col items-center px-6 text-center">
-          <RinjaMascot variant="laptop" size={200} />
+          <RinjaMascot variant="laptop" mood="thinking" size={200} />
           <p className="mt-4 text-sm text-muted-foreground">What should I keep an eye on?</p>
         </section>
       )}

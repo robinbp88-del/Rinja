@@ -11,20 +11,26 @@ import {
 
 import { BottomNav } from "../components/BottomNav";
 import { RinjaMascot } from "../components/RinjaMascot";
-import { useStore } from "../lib/store";
 import { getWatches } from "../lib/watches";
+import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
+import { requireAuth } from "../lib/requireAuth";
 import binoculars from "../assets/binoculars.png";
 
 export const Route = createFileRoute("/home")({
+  beforeLoad: requireAuth,
   component: Home,
 });
 
 const SUGGESTIONS = [
-  "RTX 5090",
-  "iPhone 17 Pro",
-  "Nike Air Max 90",
-  "Coldplay tickets",
+  { label: "Amazon", url: "https://www.amazon.com/" },
+  { label: "Finn.no", url: "https://www.finn.no/" },
+  { label: "Ticketmaster", url: "https://www.ticketmaster.com/" },
+  { label: "Apple", url: "https://www.apple.com/" },
+  { label: "Nike", url: "https://www.nike.com/" },
+  { label: "Steam", url: "https://store.steampowered.com/" },
+  { label: "Booking", url: "https://www.booking.com/" },
+  { label: "eBay", url: "https://www.ebay.com/" },
 ];
 
 function timeAgo(value: string | number | null | undefined) {
@@ -60,9 +66,6 @@ function Home() {
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
 
-  // Events er fortsatt lokale frem til vi migrerer notifications.
-  const { events } = useStore();
-
   const [query, setQuery] = useState("");
 
   const watchesQuery = useQuery({
@@ -71,7 +74,15 @@ function Home() {
     enabled: Boolean(authUser),
   });
 
+  const alertsQuery = useQuery({
+    queryKey: ["notifications", "unread", authUser?.id],
+    queryFn: getUnreadNotificationCount,
+    enabled: Boolean(authUser),
+    refetchInterval: 60_000,
+  });
+
   const watches = watchesQuery.data ?? [];
+  const unreadAlerts = alertsQuery.data ?? 0;
 
   const displayName =
     authUser?.user_metadata?.name ??
@@ -104,10 +115,11 @@ function Home() {
     <div className="min-h-screen pb-32">
       <header className="flex items-start justify-between px-6 pt-16 screen-safe">
         <RinjaMascot
-          variant="idle"
-          size={310}
+          variant="guard"
+          mood="curious"
+          size={220}
           priority
-          className="-ml-6 -mt-6 shrink-0"
+          className="-ml-2 -mt-2 shrink-0"
         />
 
         <Link
@@ -137,7 +149,7 @@ function Home() {
                 submit();
               }
             }}
-            placeholder="Search or paste a webpage URL..."
+            placeholder="Paste a webpage URL..."
             className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted-foreground"
           />
 
@@ -156,15 +168,24 @@ function Home() {
           </button>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2.5">
+        <p className="mt-4 text-[12px] text-muted-foreground">
+          Popular sites people watch for updates
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-2.5">
           {SUGGESTIONS.map((suggestion) => (
             <button
               type="button"
-              key={suggestion}
-              onClick={() => setQuery(suggestion)}
+              key={suggestion.url}
+              onClick={() =>
+                navigate({
+                  to: "/add",
+                  search: { url: suggestion.url } as never,
+                })
+              }
               className="rounded-full border border-border bg-card px-4 py-2 text-[13px] text-muted-foreground transition hover:border-primary/40 hover:text-primary"
             >
-              {suggestion}
+              {suggestion.label}
             </button>
           ))}
         </div>
@@ -264,7 +285,7 @@ function Home() {
         )}
       </section>
 
-      {events.some((event) => !event.read) && (
+      {unreadAlerts > 0 && (
         <section className="mt-8 px-6">
           <Link
             to="/notifications"
@@ -273,7 +294,7 @@ function Home() {
             <Bell className="h-4 w-4 text-primary" />
 
             <span className="flex-1 text-[13px] font-medium">
-              You have new alerts
+              You have {unreadAlerts} new alert{unreadAlerts === 1 ? "" : "s"}
             </span>
 
             <ChevronRight className="h-4 w-4 text-primary" />

@@ -1,29 +1,42 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { BottomNav } from "../components/BottomNav";
-import { useStore } from "../lib/store";
 import { RinjaMascot } from "../components/RinjaMascot";
+import {
+  getNotifications,
+  markAllNotificationsRead,
+} from "../lib/notifications";
+import { useAuth } from "../providers/AuthProvider";
+import { requireAuth } from "../lib/requireAuth";
 
 export const Route = createFileRoute("/notifications")({
+  beforeLoad: requireAuth,
   component: Notifications,
 });
 
-const STATUS_LINES = ["I'm watching.", "Nothing new yet."];
-
 function Notifications() {
-  const { events, markAllRead } = useStore();
-  const [line, setLine] = useState(0);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications", user?.id],
+    queryFn: getNotifications,
+    enabled: Boolean(user),
+  });
+
+  const notifications = notificationsQuery.data ?? [];
+  const hasAlerts = notifications.length > 0;
 
   useEffect(() => {
-    markAllRead();
-  }, []); // eslint-disable-line
+    if (!user || notifications.length === 0) return;
 
-  useEffect(() => {
-    const id = setInterval(() => {
-      setLine((s) => (s + 1) % STATUS_LINES.length);
-    }, 3600);
-    return () => clearInterval(id);
-  }, []);
+    markAllNotificationsRead()
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      })
+      .catch(console.error);
+  }, [user, notifications.length, queryClient]);
 
   return (
     <div className="min-h-screen pb-32">
@@ -31,33 +44,54 @@ function Notifications() {
         <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
       </header>
 
-      {/* Rinja at laptop */}
       <section className="mt-4 flex flex-col items-center px-6 text-center">
-        <RinjaMascot variant="laptop" size={168} />
-        <p
-          key={events.length === 0 ? "empty" : line}
-          className="mt-2 text-[14px] font-medium animate-fade-in"
-        >
-          {events.length === 0 ? "Everything looks quiet." : STATUS_LINES[line]}
+        <RinjaMascot
+          variant={hasAlerts ? "notify" : "relax"}
+          mood={hasAlerts ? "alert" : "sleepy"}
+          size={180}
+        />
+        <p className="mt-2 text-[14px] font-medium animate-fade-in">
+          {hasAlerts
+            ? "Something changed — take a look."
+            : "Everything looks quiet."}
         </p>
       </section>
 
       <div className="mt-6 px-6">
-        {events.length === 0 ? null : (
+        {hasAlerts ? (
           <div className="space-y-2">
-            {events.map((e) => (
-              <div key={e.id} className="rounded-2xl border border-border bg-card p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold">{e.title}</p>
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(e.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+            {notifications.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-border bg-card p-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{item.title}</p>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    {new Date(item.created_at).toLocaleString([], {
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{e.body}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {item.body}
+                </p>
+                {item.watch_id && (
+                  <Link
+                    to="/watch/$id"
+                    params={{ id: item.watch_id }}
+                    className="mt-3 inline-flex text-[11px] font-medium text-primary"
+                  >
+                    View watch →
+                  </Link>
+                )}
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
 
       <BottomNav />

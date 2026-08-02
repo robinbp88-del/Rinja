@@ -22,6 +22,7 @@ import { Route as AddRouteImport } from './routes/add'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
 import { Route as ApiProxyRouteImport } from './routes/api/proxy'
+import { Route as ApiCheckWatchesRouteImport } from './routes/api/check-watches'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -88,6 +89,11 @@ const ApiProxyRoute = ApiProxyRouteImport.update({
   path: '/api/proxy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCheckWatchesRoute = ApiCheckWatchesRouteImport.update({
+  id: '/api/check-watches',
+  path: '/api/check-watches',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/welcome': typeof WelcomeRoute
+  '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/welcome': typeof WelcomeRoute
+  '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/welcome': typeof WelcomeRoute
+  '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
   '/watch/$id': typeof WatchIdRoute
 }
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search'
     | '/welcome'
+    | '/api/check-watches'
     | '/api/proxy'
     | '/watch/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search'
     | '/welcome'
+    | '/api/check-watches'
     | '/api/proxy'
     | '/watch/$id'
   id:
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/search'
     | '/welcome'
+    | '/api/check-watches'
     | '/api/proxy'
     | '/watch/$id'
   fileRoutesById: FileRoutesById
@@ -195,6 +207,7 @@ export interface RootRouteChildren {
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
   WelcomeRoute: typeof WelcomeRoute
+  ApiCheckWatchesRoute: typeof ApiCheckWatchesRoute
   ApiProxyRoute: typeof ApiProxyRoute
   WatchIdRoute: typeof WatchIdRoute
 }
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProxyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/check-watches': {
+      id: '/api/check-watches'
+      path: '/api/check-watches'
+      fullPath: '/api/check-watches'
+      preLoaderRoute: typeof ApiCheckWatchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -307,6 +327,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
   WelcomeRoute: WelcomeRoute,
+  ApiCheckWatchesRoute: ApiCheckWatchesRoute,
   ApiProxyRoute: ApiProxyRoute,
   WatchIdRoute: WatchIdRoute,
 }

@@ -138,3 +138,56 @@
   40% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--sx,10px), var(--sy,-14px)) scale(1); }
 }
+@keyframes rinja-happy {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  35% { transform: translateY(-6px) rotate(-2deg) scale(1.02); }
+  70% { transform: translateY(-3px) rotate(2deg) scale(1.01); }
+}
+@keyframes rinja-curious {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  40% { transform: translateY(-4px) rotate(-4deg); }
+  60% { transform: translateY(-2px) rotate(4deg); }
+}
+@keyframes rinja-alert {
+  0%, 100% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-3px) scale(1.03); }
+  50% { transform: translateY(0) scale(0.98); }
+  75% { transform: translateY(-2px) scale(1.02); }
+}
+@keyframes rinja-sleepy {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(2px) rotate(1deg); }
+}
+@keyframes rinja-excited {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.04); }
+}
+@keyframes rinja-excited-pop {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  30% { transform: scale(1.08) rotate(-3deg); }
+  60% { transform: scale(1.04) rotate(3deg); }
+}
+@keyframes rinja-thinking {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-3px) rotate(-2deg); }
+}
+@keyframes rinja-glow-slow {
+  0%, 100% { opacity: 0.35; transform: scale(0.98); }
+  50% { opacity: 0.55; transform: scale(1.02); }
+}
+@keyframes rinja-thought {
+  0%, 100% { opacity: 0.35; transform: translateY(0); }
+  50% { opacity: 0.9; transform: translateY(-4px); }
+}
+@keyframes rinja-alert-ping {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.85; }
+}
+@keyframes rinja-shine {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.9; }
+}
+@keyframes rinja-eye-pulse {
+  0%, 100% { opacity: 0.55; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.95; transform: translateX(-50%) scale(1.08); }
+}

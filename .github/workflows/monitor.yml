@@ -1,0 +1,29 @@
+# Runs Rinja monitoring on a schedule once the app is deployed.
+# Required GitHub repo secrets:
+#   MONITOR_URL           e.g. https://your-app.example.com/api/check-watches
+#   MONITOR_CRON_SECRET   same value as in production .env / Lovable env
+
+name: Monitor watches
+
+on:
+  schedule:
+    # Every 15 minutes
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check-watches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run monitoring engine
+        env:
+          MONITOR_URL: ${{ secrets.MONITOR_URL }}
+          MONITOR_CRON_SECRET: ${{ secrets.MONITOR_CRON_SECRET }}
+        run: |
+          if [ -z "$MONITOR_URL" ] || [ -z "$MONITOR_CRON_SECRET" ]; then
+            echo "Missing MONITOR_URL or MONITOR_CRON_SECRET secrets."
+            exit 1
+          fi
+
+          curl -fsS --max-time 120 \
+            "${MONITOR_URL}?secret=${MONITOR_CRON_SECRET}"

@@ -12,6 +12,7 @@ export type CreateWatchInput = {
   elementHtml: string;
   mode: string;
   frequency: string;
+  notify?: boolean;
 };
 
 export type UpdateWatchSelectionInput = {
@@ -22,6 +23,7 @@ export type UpdateWatchSelectionInput = {
   elementTag: string;
   elementHtml: string;
   mode: string;
+  notify?: boolean;
 };
 
 export type DatabaseWatch = {
@@ -39,6 +41,7 @@ export type DatabaseWatch = {
   mode: string | null;
   frequency: string | null;
   paused: boolean;
+  notify: boolean | null;
   created_at: string;
   updated_at: string | null;
   last_checked: string | null;
@@ -76,6 +79,7 @@ export async function createWatch(
       element_html: input.elementHtml,
       mode: input.mode,
       frequency: input.frequency,
+      notify: input.notify ?? true,
       paused: false,
     })
     .select()
@@ -136,6 +140,29 @@ export async function updateWatchSelection(
       element_tag: input.elementTag,
       element_html: input.elementHtml,
       mode: input.mode,
+      ...(typeof input.notify === "boolean" ? { notify: input.notify } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data as DatabaseWatch;
+}
+
+export async function setWatchNotify(
+  id: string,
+  notify: boolean,
+): Promise<DatabaseWatch> {
+  const user = await requireUser();
+
+  const { data, error } = await supabase
+    .from("watches")
+    .update({
+      notify,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id)

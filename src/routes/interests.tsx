@@ -2,8 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { useStore } from "../lib/store";
+import { requireAuth } from "../lib/requireAuth";
 
 export const Route = createFileRoute("/interests")({
+  beforeLoad: requireAuth,
   component: Interests,
 });
 

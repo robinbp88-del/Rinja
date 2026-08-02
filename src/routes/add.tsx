@@ -2,10 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Link2, ClipboardPaste } from "lucide-react";
 import { z } from "zod";
+import { requireAuth } from "../lib/requireAuth";
 
 const searchSchema = z.object({ url: z.string().optional() });
 
 export const Route = createFileRoute("/add")({
+  beforeLoad: requireAuth,
   validateSearch: (s) => searchSchema.parse(s),
   component: AddWatch,
 });

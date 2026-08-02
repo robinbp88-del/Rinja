@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Check, Crown } from "lucide-react";
 import { toast } from "sonner";
+import { requireAuth } from "../lib/requireAuth";
 
 export const Route = createFileRoute("/premium")({
+  beforeLoad: requireAuth,
   component: Premium,
 });
 
