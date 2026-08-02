@@ -16,6 +16,7 @@ import {
   Globe,
   Loader2,
   RefreshCw,
+  ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 
@@ -172,6 +173,17 @@ function WatchDetail() {
     }
   };
 
+  const handleOpenWebsite = () => {
+    navigate({
+      to: "/highlight",
+      search: {
+        url: watch.url,
+        selector: watch.selector ?? undefined,
+        watchId: watch.id,
+      } as never,
+    });
+  };
+
   return (
     <div className="min-h-screen pb-16">
       <header className="flex items-center gap-3 px-4 pt-6 screen-safe">
@@ -229,6 +241,17 @@ function WatchDetail() {
             value={frequency}
           />
         </div>
+      </section>
+
+      <section className="mt-6 px-6">
+        <button
+          type="button"
+          onClick={handleOpenWebsite}
+          className="flex h-13 w-full items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition active:scale-[0.98]"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open Website
+        </button>
       </section>
 
       <section className="mt-8 px-6">

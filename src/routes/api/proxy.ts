@@ -315,12 +315,46 @@ function pickerScript() {
       selected = null;
       paint(null, "hover");
     } else if (d.type === "mark") {
-      const target = selected;
-      selected = null;
-      picking = false;
-      paint(null, "hover");
-      if (target) markEye(target);
+  const target = selected;
+  selected = null;
+  picking = false;
+  paint(null, "hover");
+
+  if (target) {
+    markEye(target);
+  }
+} else if (d.type === "reveal") {
+  const selector =
+    typeof d.selector === "string" ? d.selector : "";
+
+  if (!selector) return;
+
+  try {
+    const target = document.querySelector(selector);
+
+    if (!target) {
+      send("reveal-missing", { selector });
+      return;
     }
+
+    selected = target;
+    picking = false;
+
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "center",
+    });
+
+    setTimeout(() => {
+      paint(target, "selected");
+      markEye(target);
+      send("revealed", { selector });
+    }, 350);
+  } catch {
+    send("reveal-missing", { selector });
+  }
+}
   });
 
   send("ready", { url: location.href, title: document.title });

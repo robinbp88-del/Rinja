@@ -45,8 +45,17 @@ type Selection = {
   html: string;
 };
 
-type Kind = "price" | "stock" | "date" | "image" | "text";
-type SaveState = "idle" | "saving" | "done";
+type Kind =
+  | "price"
+  | "stock"
+  | "date"
+  | "image"
+  | "text";
+
+type SaveState =
+  | "idle"
+  | "saving"
+  | "done";
 
 function Highlight() {
   const {
@@ -57,20 +66,29 @@ function Highlight() {
 
   const navigate = useNavigate();
   const { addWatch } = useStore();
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [ready, setReady] = useState(false);
   const [pageTitle, setPageTitle] = useState("");
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [selection, setSelection] =
+    useState<Selection | null>(null);
   const [picking, setPicking] = useState(false);
-  const [mode, setMode] = useState<WatchMode>("any");
-  const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [resolvedSelector, setResolvedSelector] = useState(
-    searchSelector ?? "",
-  );
+  const [mode, setMode] =
+    useState<WatchMode>("any");
+  const [saveState, setSaveState] =
+    useState<SaveState>("idle");
+
+  const [resolvedSelector, setResolvedSelector] =
+    useState(searchSelector ?? "");
 
   const host = hostFromUrl(url);
 
+  /*
+   * Finn selectoren:
+   * 1. Bruk selector fra URL dersom den finnes.
+   * 2. Ellers hent watchen fra Supabase ved hjelp av watchId.
+   */
   useEffect(() => {
     if (searchSelector) {
       setResolvedSelector(searchSelector);
@@ -87,10 +105,16 @@ function Highlight() {
     getWatchById(watchId)
       .then((watch) => {
         if (cancelled) return;
-        setResolvedSelector(watch?.selector?.trim() ?? "");
+
+        setResolvedSelector(
+          watch?.selector?.trim() ?? "",
+        );
       })
       .catch((error) => {
-        console.error("Could not load saved selector:", error);
+        console.error(
+          "Could not load saved selector:",
+          error,
+        );
       });
 
     return () => {
@@ -98,11 +122,17 @@ function Highlight() {
     };
   }, [searchSelector, watchId]);
 
+  /*
+   * Motta meldinger fra den proxiede nettsiden.
+   */
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       const data = event.data;
 
-      if (!data || data.source !== "watchpage-picker") {
+      if (
+        !data ||
+        data.source !== "watchpage-picker"
+      ) {
         return;
       }
 
@@ -117,11 +147,14 @@ function Highlight() {
       }
 
       if (data.type === "selected") {
-        const selected = data.payload as Selection;
+        const selected =
+          data.payload as Selection;
 
         setSelection(selected);
         setSaveState("idle");
-        setMode(defaultModeFor(detectKind(selected)));
+        setMode(
+          defaultModeFor(detectKind(selected)),
+        );
 
         if (navigator.vibrate) {
           navigator.vibrate(8);
@@ -131,7 +164,11 @@ function Highlight() {
       }
 
       if (data.type === "revealed") {
-        console.info("Saved element revealed:", data.payload?.selector);
+        console.info(
+          "Saved element revealed:",
+          data.payload?.selector,
+        );
+
         return;
       }
 
@@ -143,13 +180,26 @@ function Highlight() {
       }
     };
 
-    window.addEventListener("message", onMessage);
+    window.addEventListener(
+      "message",
+      onMessage,
+    );
 
     return () => {
-      window.removeEventListener("message", onMessage);
+      window.removeEventListener(
+        "message",
+        onMessage,
+      );
     };
   }, []);
 
+  /*
+   * Når siden og selectoren er klare:
+   * send reveal-meldingen til proxy-scriptet.
+   *
+   * Vi prøver flere ganger fordi Amazon og andre sider
+   * kan bygge deler av siden etter første innlasting.
+   */
   useEffect(() => {
     if (
       !ready ||
@@ -177,7 +227,9 @@ function Highlight() {
     ];
 
     return () => {
-      timers.forEach((timer) => window.clearTimeout(timer));
+      timers.forEach((timer) =>
+        window.clearTimeout(timer),
+      );
     };
   }, [ready, resolvedSelector]);
 
@@ -218,61 +270,163 @@ function Highlight() {
   };
 
   const kind = detectKind(selection);
-  const options = useMemo(() => optionsFor(kind), [kind]);
+
+  const options = useMemo(
+    () => optionsFor(kind),
+    [kind],
+  );
 
   const save = async () => {
-    if (!selection || saveState !== "idle") {
-      return;
-    }
+  if (!selection || saveState !== "idle") {
+    return;
+  }
 
-    setSaveState("saving");
+  setSaveState("saving");
 
-    const label = labelFor(kind, mode, selection.text);
-    const value = selection.text || selection.html.slice(0, 80);
+  const label = labelFor(
+    kind,
+    mode,
+    selection.text,
+  );
 
-    try {
-      if (watchId) {
-        await updateWatchSelection(watchId, {
-          label,
-          currentValue: value,
-          selector: selection.selector,
-          elementText: selection.text,
-          elementTag: selection.tag,
-          elementHtml: selection.html,
-          mode,
-        });
-      } else {
-        await createWatch({
+  const value =
+    selection.text ||
+    selection.html.slice(0, 80);
+
+  try {
+    if (watchId) {
+      await updateWatchSelection(watchId, {
+        label,
+        currentValue: value,
+        selector: selection.selector,
+        elementText: selection.text,
+        elementTag: selection.tag,
+        elementHtml: selection.html,
+        mode,
+      });
+    } else {
+      await createWatch({
+        url,
+        host,
+        title: pageTitle || host,
+        label,
+        currentValue: value,
+        selector: selection.selector,
+        elementText: selection.text,
+        elementTag: selection.tag,
+        elementHtml: selection.html,
+        mode,
+        frequency: "15m",
+      });
+
+      addWatch(
+        {
           url,
           host,
           title: pageTitle || host,
           label,
           currentValue: value,
-          selector: selection.selector,
-          elementText: selection.text,
-          elementTag: selection.tag,
-          elementHtml: selection.html,
-          mode,
           frequency: "15m",
-        });
+          selector: selection.selector,
+          mode,
+        } as never,
+        {
+          eventTitle: "I'm watching",
+          eventBody: `👀 On it — ${label} · ${host}`,
+        },
+      );
+    }
 
-        addWatch(
-          {
-            url,
-            host,
-            title: pageTitle || host,
-            label,
-            currentValue: value,
-            frequency: "15m",
-            selector: selection.selector,
-            mode,
-          } as never,
-          {
-            eventTitle: "I'm watching",
-            eventBody: `👀 On it — ${label} · ${host}`,
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+
+    setSaveState("done");
+    post("mark");
+
+    window.setTimeout(() => {
+      setSelection(null);
+      setSaveState("idle");
+      setPicking(false);
+
+      if (watchId) {
+        navigate({
+          to: "/watch/$id",
+          params: {
+            id: watchId,
           },
-        );
+        });
+      } else {
+        navigate({
+          to: "/home",
+        });
       }
+    }, 850);
+  } catch (error) {
+    console.error(
+      "Could not save watch:",
+      error,
+    );
+
+    setSaveState("idle");
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Could not save the watch.";
+
+    window.alert(message);
+  }
+};
+
+    setSaveState("saving");
+
+    const label = labelFor(
+      kind,
+      mode,
+      selection.text,
+    );
+
+    const value =
+      selection.text ||
+      selection.html.slice(0, 80);
+
+    try {
+     await createWatch({
+  url,
+  host,
+  title: pageTitle || host,
+  label,
+  currentValue: value,
+  selector: selection.selector,
+  elementText: selection.text,
+  elementTag: selection.tag,
+  elementHtml: selection.html,
+  mode,
+  frequency: "15m",
+});
+
+      /*
+       * Lokal store beholdes foreløpig fordi events
+       * og enkelte andre sider ikke er migrert ennå.
+       */
+      addWatch(
+        {
+          url,
+          host,
+          title: pageTitle || host,
+          label,
+          currentValue: value,
+          frequency: "15m",
+          selector: selection.selector,
+          mode,
+        } as never,
+        {
+          eventTitle: "I'm watching",
+          eventBody:
+            `👀 On it — ${label} · ${host}`,
+        },
+      );
 
       if (navigator.vibrate) {
         navigator.vibrate(10);
@@ -286,17 +440,16 @@ function Highlight() {
         setSaveState("idle");
         setPicking(false);
 
-        if (watchId) {
-          navigate({
-            to: "/watch/$id",
-            params: { id: watchId },
-          });
-        } else {
-          navigate({ to: "/home" });
-        }
+        navigate({
+          to: "/home",
+        });
       }, 850);
     } catch (error) {
-      console.error("Could not save watch:", error);
+      console.error(
+        "Could not save watch:",
+        error,
+      );
+
       setSaveState("idle");
 
       const message =
@@ -312,18 +465,24 @@ function Highlight() {
     if (watchId) {
       navigate({
         to: "/watch/$id",
-        params: { id: watchId },
+        params: {
+          id: watchId,
+        },
       });
+
       return;
     }
 
     navigate({
       to: "/add",
-      search: { url } as never,
+      search: {
+        url,
+      } as never,
     });
   };
 
-  const src = `/api/proxy?url=${encodeURIComponent(url)}`;
+  const src =
+    `/api/proxy?url=${encodeURIComponent(url)}`;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -345,7 +504,9 @@ function Highlight() {
           <button
             type="button"
             aria-label="Close"
-            onClick={() => navigate({ to: "/home" })}
+            onClick={() =>
+              navigate({ to: "/home" })
+            }
             className="flex h-9 w-9 items-center justify-center rounded-full bg-card"
           >
             <X className="h-4 w-4" />
@@ -363,6 +524,7 @@ function Highlight() {
         {!ready && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
+
             <p className="text-xs text-muted-foreground">
               Loading {host}…
             </p>
@@ -389,7 +551,10 @@ function Highlight() {
               className="h-5 w-5"
               strokeWidth={2.6}
             />
-            {watchId ? "Change selection" : "Highlight"}
+
+            {watchId
+              ? "Change selection"
+              : "Highlight"}
           </button>
         </div>
       )}
@@ -411,7 +576,11 @@ function Highlight() {
         <>
           <div
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm animate-fade-in"
-            onClick={saveState === "idle" ? dismissSheet : undefined}
+            onClick={
+              saveState === "idle"
+                ? dismissSheet
+                : undefined
+            }
           />
 
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md px-3 pb-3 screen-safe">
@@ -429,16 +598,16 @@ function Highlight() {
                   </p>
 
                   <h3 className="mt-1 text-[19px] font-semibold leading-snug tracking-tight">
-                    {watchId
-                      ? "Update what I should watch?"
-                      : "Should I keep an eye on this?"}
+                    Should I keep an eye on this?
                   </h3>
                 </div>
               </div>
 
               <div className="mt-4 rounded-2xl border border-border/60 bg-background/60 px-4 py-3">
                 {kind === "image" ? (
-                  <ImagePreview html={selection.html} />
+                  <ImagePreview
+                    html={selection.html}
+                  />
                 ) : (
                   <p className="truncate text-[15px] font-medium">
                     {selection.text?.trim() || (
@@ -452,14 +621,19 @@ function Highlight() {
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {options.map((option) => {
-                  const active = mode === option.value;
+                  const active =
+                    mode === option.value;
 
                   return (
                     <button
                       type="button"
                       key={option.value}
-                      disabled={saveState !== "idle"}
-                      onClick={() => setMode(option.value)}
+                      disabled={
+                        saveState !== "idle"
+                      }
+                      onClick={() =>
+                        setMode(option.value)
+                      }
                       className={`flex h-10 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition ${
                         active
                           ? "border-primary bg-primary/15 text-primary"
@@ -470,6 +644,7 @@ function Highlight() {
                         className="h-3.5 w-3.5"
                         strokeWidth={2.4}
                       />
+
                       {option.label}
                     </button>
                   );
@@ -479,7 +654,9 @@ function Highlight() {
               <button
                 type="button"
                 onClick={save}
-                disabled={saveState !== "idle"}
+                disabled={
+                  saveState !== "idle"
+                }
                 className={`mt-5 flex h-[52px] w-full items-center justify-center gap-2 rounded-full text-sm font-semibold transition active:scale-[0.98] ${
                   saveState === "done"
                     ? "bg-primary/20 text-primary"
@@ -487,19 +664,22 @@ function Highlight() {
                 }`}
               >
                 {saveState === "idle" &&
-                  (watchId ? "Update watch" : "Yes")}
+                  "Yes"}
 
                 {saveState === "saving" && (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {watchId ? "Updating…" : "Watching…"}
+                    Watching…
                   </>
                 )}
 
                 {saveState === "done" && (
                   <>
-                    <Check className="h-4 w-4" strokeWidth={3} />
-                    {watchId ? "Updated" : "I'm watching"}
+                    <Check
+                      className="h-4 w-4"
+                      strokeWidth={3}
+                    />
+                    I'm watching
                   </>
                 )}
               </button>
@@ -511,7 +691,11 @@ function Highlight() {
   );
 }
 
-function ImagePreview({ html }: { html: string }) {
+function ImagePreview({
+  html,
+}: {
+  html: string;
+}) {
   const src = html.match(
     /<img[^>]+src=["']([^"']+)["']/i,
   )?.[1];
@@ -531,9 +715,11 @@ function ImagePreview({ html }: { html: string }) {
         alt=""
         className="h-14 w-14 rounded-xl border border-border/60 object-cover"
         onError={(event) => {
-          event.currentTarget.style.display = "none";
+          event.currentTarget.style.display =
+            "none";
         }}
       />
+
       <p className="truncate text-[13px] text-muted-foreground">
         Image
       </p>
@@ -541,7 +727,9 @@ function ImagePreview({ html }: { html: string }) {
   );
 }
 
-function detectKind(selection: Selection | null): Kind {
+function detectKind(
+  selection: Selection | null,
+): Kind {
   if (!selection) return "text";
 
   if (
@@ -599,17 +787,32 @@ function detectKind(selection: Selection | null): Kind {
 }
 
 function kindLabel(kind: Kind) {
-  if (kind === "price") return "Price detected";
-  if (kind === "stock") return "Stock detected";
-  if (kind === "date") return "Date detected";
-  if (kind === "image") return "Image detected";
+  if (kind === "price") {
+    return "Price detected";
+  }
+
+  if (kind === "stock") {
+    return "Stock detected";
+  }
+
+  if (kind === "date") {
+    return "Date detected";
+  }
+
+  if (kind === "image") {
+    return "Image detected";
+  }
+
   return "Element selected";
 }
 
-function defaultModeFor(kind: Kind): WatchMode {
+function defaultModeFor(
+  kind: Kind,
+): WatchMode {
   if (kind === "price") return "price";
   if (kind === "stock") return "stock";
   if (kind === "image") return "image";
+
   return "any";
 }
 
@@ -668,13 +871,28 @@ function labelFor(
   mode: WatchMode,
   text: string,
 ) {
-  const trimmed = text.trim().slice(0, 40);
+  const trimmed =
+    text.trim().slice(0, 40);
 
-  if (mode === "price") return `Price · ${trimmed}`;
-  if (mode === "stock") return "Stock availability";
-  if (mode === "image") return "Image";
-  if (mode === "text") return trimmed || "Text element";
-  if (mode === "custom") return trimmed || `${kind} element`;
+  if (mode === "price") {
+    return `Price · ${trimmed}`;
+  }
+
+  if (mode === "stock") {
+    return "Stock availability";
+  }
+
+  if (mode === "image") {
+    return "Image";
+  }
+
+  if (mode === "text") {
+    return trimmed || "Text element";
+  }
+
+  if (mode === "custom") {
+    return trimmed || `${kind} element`;
+  }
 
   return trimmed || "Any change";
 }

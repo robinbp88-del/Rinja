@@ -7,8 +7,21 @@ export type CreateWatchInput = {
   label: string;
   currentValue: string;
   selector: string;
+  elementText: string;
+  elementTag: string;
+  elementHtml: string;
   mode: string;
   frequency: string;
+};
+
+export type UpdateWatchSelectionInput = {
+  label: string;
+  currentValue: string;
+  selector: string;
+  elementText: string;
+  elementTag: string;
+  elementHtml: string;
+  mode: string;
 };
 
 export type DatabaseWatch = {
@@ -20,6 +33,9 @@ export type DatabaseWatch = {
   label: string;
   current_value: string | null;
   selector: string | null;
+  element_text: string | null;
+  element_tag: string | null;
+  element_html: string | null;
   mode: string | null;
   frequency: string | null;
   paused: boolean;
@@ -55,6 +71,9 @@ export async function createWatch(
       label: input.label,
       current_value: input.currentValue,
       selector: input.selector,
+      element_text: input.elementText,
+      element_tag: input.elementTag,
+      element_html: input.elementHtml,
       mode: input.mode,
       frequency: input.frequency,
       paused: false,
@@ -84,12 +103,13 @@ export async function getWatches(): Promise<DatabaseWatch[]> {
 export async function getWatchById(
   id: string,
 ): Promise<DatabaseWatch | null> {
-  await requireUser();
+  const user = await requireUser();
 
   const { data, error } = await supabase
     .from("watches")
     .select("*")
     .eq("id", id)
+    .eq("user_id", user.id)
     .maybeSingle();
 
   if (error) {
@@ -98,6 +118,34 @@ export async function getWatchById(
   }
 
   return data as DatabaseWatch | null;
+}
+
+export async function updateWatchSelection(
+  id: string,
+  input: UpdateWatchSelectionInput,
+): Promise<DatabaseWatch> {
+  const user = await requireUser();
+
+  const { data, error } = await supabase
+    .from("watches")
+    .update({
+      label: input.label,
+      current_value: input.currentValue,
+      selector: input.selector,
+      element_text: input.elementText,
+      element_tag: input.elementTag,
+      element_html: input.elementHtml,
+      mode: input.mode,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data as DatabaseWatch;
 }
 
 export async function setWatchPaused(
