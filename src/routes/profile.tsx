@@ -57,17 +57,15 @@ function Profile() {
   async function handleLogout() {
     if (loggingOut) return;
 
+    const confirmed = window.confirm("Log out of Rinja?");
+    if (!confirmed) return;
+
     try {
       setLoggingOut(true);
       setLogoutError("");
 
-      // Logger ut av den ekte Supabase-sesjonen.
       await signOut();
-
-      // Tømmer gammel lokal prototype-data.
       clearLocalStore();
-
-      // Fjerner watches og annen brukerdata fra React Query-cache.
       queryClient.clear();
 
       navigate({

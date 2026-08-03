@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { AuthNavigationGuard } from "../components/AuthNavigationGuard";
 import { registerPwa } from "../lib/pwa";
 import { AuthProvider } from "../providers/AuthProvider";
 import { StoreProvider } from "../lib/store";
@@ -120,6 +121,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
         <AuthProvider>
+          <AuthNavigationGuard />
           <div className="mx-auto max-w-md min-h-screen bg-background">
             <Outlet />
           </div>

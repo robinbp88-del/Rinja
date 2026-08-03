@@ -35,7 +35,7 @@ function Login() {
         await signIn(email, password);
       }
 
-      navigate({ to: "/home" });
+      navigate({ to: "/home", replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
