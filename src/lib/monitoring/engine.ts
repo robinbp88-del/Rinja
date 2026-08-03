@@ -13,6 +13,7 @@ import {
   type MonitorErrorCode,
 } from "./errors";
 import { sendImmediateChangeEmail } from "../digest";
+import { sendPushToUser } from "../push.server";
 import type { WatchFrequency, WatchMode } from "../watch-mode";
 import { createServiceClient } from "../supabase.server";
 
@@ -334,6 +335,16 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     });
 
     if (applied?.notified) {
+      try {
+        await sendPushToUser(watch.user_id, {
+          title: `${title} · ${watch.label}`,
+          body,
+          url: `/watch/${watch.id}`,
+        });
+      } catch (pushErr) {
+        console.warn("Push notification failed:", pushErr);
+      }
+
       try {
         const { data: authData } = await supabase.auth.admin.getUserById(
           watch.user_id,
