@@ -1,4 +1,8 @@
 import { requireUser } from "./auth";
+import {
+  userFacingError,
+  type MonitorErrorCode,
+} from "./monitoring/errors";
 import { supabase } from "./supabase";
 import type { WatchFrequency, WatchMode } from "./watch-mode";
 
@@ -15,6 +19,8 @@ export type CreateWatchInput = {
   mode: WatchMode;
   frequency: WatchFrequency | string;
   notify?: boolean;
+  /** Whole-page watches start without a fingerprint until the first check. */
+  baselinePending?: boolean;
 };
 
 export type UpdateWatchSelectionInput = {
@@ -36,6 +42,7 @@ export type DatabaseWatch = {
   title: string | null;
   label: string;
   current_value: string | null;
+  previous_value?: string | null;
   selector: string | null;
   element_text: string | null;
   element_tag: string | null;
@@ -47,6 +54,13 @@ export type DatabaseWatch = {
   created_at: string;
   updated_at: string | null;
   last_checked: string | null;
+  last_attempted_at?: string | null;
+  last_success_at?: string | null;
+  last_error?: string | null;
+  last_error_code?: string | null;
+  consecutive_failures?: number | null;
+  check_status?: string | null;
+  baseline_pending?: boolean | null;
 };
 
 export async function createWatch(
@@ -72,6 +86,7 @@ export async function createWatch(
       frequency: input.frequency,
       notify: input.notify ?? true,
       paused: false,
+      ...(input.baselinePending ? { baseline_pending: true } : {}),
     })
     .select()
     .single();
@@ -104,12 +119,30 @@ export async function getWatches(): Promise<DatabaseWatch[]> {
 export function watchStatusLine(watch: DatabaseWatch): string {
   if (watch.paused) return "Paused";
 
+  const status = watch.check_status ?? null;
+  if (
+    status === "error" ||
+    status === "blocked" ||
+    status === "unsupported"
+  ) {
+    const code = (watch.last_error_code ?? "unknown") as MonitorErrorCode;
+    return userFacingError(code, watch.last_error ?? "Check failed");
+  }
+
+  if (
+    watch.baseline_pending ||
+    ((watch.mode === "page" || watch.element_tag === "page") &&
+      !watch.current_value?.trim())
+  ) {
+    return "Baseline pending — first check soon";
+  }
+
   const isPage =
     watch.mode === "page" || watch.element_tag === "page";
   if (isPage) {
-    return watch.current_value?.trim()
-      ? "Watching whole page"
-      : "Baseline pending — first check soon";
+    return status === "changed"
+      ? "Page changed"
+      : "Watching whole page";
   }
 
   const isPaste =
@@ -123,6 +156,49 @@ export function watchStatusLine(watch: DatabaseWatch): string {
   }
 
   return watch.current_value?.trim() || "Watching";
+}
+
+const FREQ_MS: Record<string, number> = {
+  "5m": 5 * 60 * 1000,
+  "15m": 15 * 60 * 1000,
+  "1h": 60 * 60 * 1000,
+  "6h": 6 * 60 * 60 * 1000,
+  "1d": 24 * 60 * 60 * 1000,
+};
+
+/** Human-readable next-check hint for detail UI. */
+export function watchNextCheckLabel(watch: DatabaseWatch): string {
+  if (watch.paused) return "Paused";
+  if (watch.baseline_pending || !watch.last_checked) {
+    return "Soon (first check)";
+  }
+
+  const interval = FREQ_MS[watch.frequency ?? "15m"] ?? FREQ_MS["15m"];
+  const next = new Date(watch.last_checked).getTime() + interval;
+  if (Number.isNaN(next)) return "Soon";
+
+  const delta = next - Date.now();
+  if (delta <= 0) return "Due now";
+
+  const mins = Math.round(delta / 60_000);
+  if (mins < 60) return `In ~${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `In ~${hours}h`;
+  return `In ~${Math.round(hours / 24)}d`;
+}
+
+export function watchHealthMessage(watch: DatabaseWatch): string | null {
+  if (watch.paused) return null;
+  const status = watch.check_status;
+  if (
+    status !== "error" &&
+    status !== "blocked" &&
+    status !== "unsupported"
+  ) {
+    return null;
+  }
+  const code = (watch.last_error_code ?? "unknown") as MonitorErrorCode;
+  return userFacingError(code, watch.last_error ?? "Check failed");
 }
 
 export async function getWatchById(

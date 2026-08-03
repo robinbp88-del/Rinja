@@ -23,14 +23,14 @@ export const Route = createFileRoute("/home")({
 });
 
 const SUGGESTIONS = [
-  { label: "Amazon", url: "https://www.amazon.com/" },
   { label: "Finn.no", url: "https://www.finn.no/" },
-  { label: "Ticketmaster", url: "https://www.ticketmaster.com/" },
-  { label: "Apple", url: "https://www.apple.com/" },
-  { label: "Nike", url: "https://www.nike.com/" },
-  { label: "Steam", url: "https://store.steampowered.com/" },
-  { label: "Booking", url: "https://www.booking.com/" },
-  { label: "eBay", url: "https://www.ebay.com/" },
+  { label: "Prisjakt", url: "https://www.prisjakt.no/" },
+  { label: "Yr", url: "https://www.yr.no/nb" },
+  { label: "XXL", url: "https://www.xxl.no/" },
+  { label: "Vinmonopolet", url: "https://www.vinmonopolet.no/" },
+  { label: "VG", url: "https://www.vg.no/" },
+  { label: "NRK", url: "https://www.nrk.no/" },
+  { label: "Tek.no", url: "https://www.tek.no/" },
 ];
 
 function timeAgo(value: string | number | null | undefined) {
@@ -172,7 +172,7 @@ function Home() {
         </div>
 
         <p className="mt-4 text-[12px] text-muted-foreground">
-          Popular sites people watch for updates
+          Sites that work well with Rinja
         </p>
 
         <div className="mt-3 flex flex-wrap gap-2.5">
@@ -293,7 +293,15 @@ function Home() {
                     {watch.label}
                   </p>
 
-                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                  <p
+                    className={`mt-0.5 truncate text-[12px] ${
+                      watch.check_status === "error" ||
+                      watch.check_status === "blocked" ||
+                      watch.check_status === "unsupported"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    }`}
+                  >
                     {watchStatusLine(watch)}
                   </p>
 

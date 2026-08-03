@@ -2,7 +2,9 @@
  * Local helper: force-run monitoring against a running app.
  * Usage:
  *   npm run monitor:once
- *   npm run monitor:once -- http://localhost:8080
+ *   npm run monitor:once -- http://localhost:8081
+ *
+ * Always uses ?force=1 (checks all non-paused watches). Production cron must not.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -27,6 +29,7 @@ const res = await fetch(url, {
   headers: {
     Authorization: `Bearer ${secret}`,
     "Cache-Control": "no-store",
+    Accept: "application/json",
   },
 });
 const body = await res.text();

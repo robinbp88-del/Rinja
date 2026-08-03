@@ -59,6 +59,7 @@ function SetupWatch() {
         mode: "any",
         frequency: "15m",
         notify: true,
+        baselinePending: true,
       });
 
       try {

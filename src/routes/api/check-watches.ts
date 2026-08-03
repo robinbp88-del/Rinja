@@ -4,8 +4,12 @@ import { runDueWatchChecks } from "../../lib/monitoring/engine";
 export const Route = createFileRoute("/api/check-watches")({
   server: {
     handlers: {
-      GET: async ({ request }) => handleMonitor(request),
       POST: async ({ request }) => handleMonitor(request),
+      GET: async () =>
+        Response.json(
+          { error: "Method not allowed. Use POST with Bearer auth." },
+          { status: 405, headers: { allow: "POST", "cache-control": "no-store" } },
+        ),
     },
   },
 });
@@ -32,6 +36,7 @@ async function handleMonitor(request: Request) {
   }
 
   try {
+    // force=1 is for manual/local runs only — scheduled cron should omit it.
     const force = new URL(request.url).searchParams.get("force") === "1";
     const summary = await runDueWatchChecks(25, { force });
     return Response.json(

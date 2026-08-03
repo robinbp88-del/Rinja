@@ -1,10 +1,17 @@
+import { createHash } from "node:crypto";
 import { changeSummary, valuesEqual } from "./compare";
 import {
   extractValue,
   fetchPageHtml,
   pageContainsText,
   pageFingerprint,
+  scoreFetchedHtml,
 } from "./extract";
+import {
+  MonitorError,
+  toMonitorError,
+  type MonitorErrorCode,
+} from "./errors";
 import type { WatchFrequency, WatchMode } from "../watch-mode";
 import { createServiceClient } from "../supabase.server";
 
@@ -40,6 +47,7 @@ export type WatchRow = {
   host: string | null;
   label: string;
   current_value: string | null;
+  previous_value?: string | null;
   selector: string | null;
   element_text: string | null;
   element_tag: string | null;
@@ -49,6 +57,13 @@ export type WatchRow = {
   notify: boolean | null;
   created_at: string;
   last_checked: string | null;
+  last_attempted_at?: string | null;
+  last_success_at?: string | null;
+  last_error?: string | null;
+  last_error_code?: string | null;
+  consecutive_failures?: number | null;
+  check_status?: string | null;
+  baseline_pending?: boolean | null;
 };
 
 export type CheckResult =
@@ -58,40 +73,199 @@ export type CheckResult =
       status: "changed";
       oldValue: string | null;
       newValue: string;
+      notified?: boolean;
     }
-  | { watchId: string; status: "error"; message: string }
+  | { watchId: string; status: "baseline" }
+  | { watchId: string; status: "error"; message: string; code?: MonitorErrorCode }
   | { watchId: string; status: "skipped"; reason: string };
+
+function isPageWatch(watch: WatchRow) {
+  return watch.mode === "page" || watch.element_tag === "page";
+}
+
+function dedupeKey(
+  watchId: string,
+  oldValue: string | null,
+  newValue: string,
+): string {
+  return createHash("sha256")
+    .update(`${watchId}|${oldValue ?? ""}|${newValue}`)
+    .digest("hex")
+    .slice(0, 40);
+}
+
+function isMissingRpc(message: string) {
+  const m = message.toLowerCase();
+  return (
+    m.includes("could not find the function") ||
+    m.includes("does not exist") ||
+    m.includes("schema cache")
+  );
+}
+
+async function applyResult(
+  supabase: ReturnType<typeof createServiceClient>,
+  args: {
+    watchId: string;
+    outcome: "baseline" | "unchanged" | "changed" | "error";
+    newValue?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    notify?: boolean;
+    title?: string | null;
+    body?: string | null;
+    dedupeKey?: string | null;
+    userId?: string;
+    oldValue?: string | null;
+  },
+) {
+  const { data, error } = await supabase.rpc("apply_watch_check_result", {
+    p_watch_id: args.watchId,
+    p_outcome: args.outcome,
+    p_new_value: args.newValue ?? null,
+    p_error_code: args.errorCode ?? null,
+    p_error_message: args.errorMessage ?? null,
+    p_notify: args.notify ?? true,
+    p_title: args.title ?? null,
+    p_body: args.body ?? null,
+    p_dedupe_key: args.dedupeKey ?? null,
+  });
+
+  if (error) {
+    if (isMissingRpc(error.message)) {
+      console.warn(
+        "apply_watch_check_result unavailable, using legacy write:",
+        error.message,
+      );
+      return applyResultLegacy(supabase, args);
+    }
+    throw new MonitorError("db", error.message);
+  }
+
+  return data as { ok?: boolean; outcome?: string; notified?: boolean };
+}
+
+/** Pre-migration path: update core fields + optional notification insert. */
+async function applyResultLegacy(
+  supabase: ReturnType<typeof createServiceClient>,
+  args: {
+    watchId: string;
+    outcome: "baseline" | "unchanged" | "changed" | "error";
+    newValue?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    notify?: boolean;
+    title?: string | null;
+    body?: string | null;
+    dedupeKey?: string | null;
+    userId?: string;
+    oldValue?: string | null;
+  },
+): Promise<{ ok?: boolean; outcome?: string; notified?: boolean }> {
+  const now = new Date().toISOString();
+
+  if (args.outcome === "error") {
+    const { error } = await supabase
+      .from("watches")
+      .update({ last_checked: now, updated_at: now })
+      .eq("id", args.watchId);
+    if (error) throw new MonitorError("db", error.message);
+    return { ok: true, outcome: "error", notified: false };
+  }
+
+  if (args.outcome === "unchanged") {
+    const { error } = await supabase
+      .from("watches")
+      .update({ last_checked: now, updated_at: now })
+      .eq("id", args.watchId);
+    if (error) throw new MonitorError("db", error.message);
+    return { ok: true, outcome: "unchanged", notified: false };
+  }
+
+  const { error } = await supabase
+    .from("watches")
+    .update({
+      current_value: args.newValue ?? null,
+      last_checked: now,
+      updated_at: now,
+    })
+    .eq("id", args.watchId);
+  if (error) throw new MonitorError("db", error.message);
+
+  let notified = false;
+  if (
+    args.outcome === "changed" &&
+    args.notify !== false &&
+    args.title &&
+    args.body &&
+    args.userId
+  ) {
+    const { error: notifyErr } = await supabase.from("notifications").insert({
+      user_id: args.userId,
+      watch_id: args.watchId,
+      title: args.title,
+      body: args.body,
+      old_value: args.oldValue ?? null,
+      new_value: args.newValue ?? null,
+      read: false,
+    });
+    notified = !notifyErr;
+    if (notifyErr) {
+      console.warn("Legacy notification insert failed:", notifyErr.message);
+    }
+  }
+
+  return { ok: true, outcome: args.outcome, notified };
+}
 
 export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
   if (watch.paused) {
     return { watchId: watch.id, status: "skipped", reason: "paused" };
   }
 
-  const isPageMode =
-    watch.mode === "page" || watch.element_tag === "page";
+  const pageMode = isPageWatch(watch);
   const hasSelector = Boolean(watch.selector?.trim());
   const hasText = Boolean(watch.element_text?.trim());
 
-  // Page watches only need a URL; paste watches need text; else need a selector.
-  if (!isPageMode && !hasSelector && !hasText) {
+  if (!pageMode && !hasSelector && !hasText) {
     return { watchId: watch.id, status: "skipped", reason: "no selector" };
   }
 
+  const supabase = createServiceClient();
+
   try {
     const html = await fetchPageHtml(watch.url);
-    const now = new Date().toISOString();
-    const supabase = createServiceClient();
+    const quality = scoreFetchedHtml(html);
+
+    if (quality === "empty_html" || quality === "js_shell") {
+      await applyResult(supabase, {
+        watchId: watch.id,
+        outcome: "error",
+        errorCode: quality,
+        errorMessage:
+          quality === "js_shell"
+            ? "Page looks like a JavaScript shell without useful HTML content"
+            : "Fetched HTML was empty or unusable",
+      });
+      return {
+        watchId: watch.id,
+        status: "error",
+        code: quality,
+        message:
+          quality === "js_shell"
+            ? "JavaScript-rendered page not available via fetch"
+            : "Empty or unusable HTML",
+      };
+    }
 
     let extracted: string | null = null;
     let baselineOnly = false;
 
-    if (isPageMode) {
+    if (pageMode) {
       extracted = pageFingerprint(html);
-      if (!watch.current_value?.trim()) {
-        baselineOnly = true;
-      }
+      baselineOnly =
+        Boolean(watch.baseline_pending) || !watch.current_value?.trim();
     } else if (!hasSelector && hasText) {
-      // Paste-value watch: alert when the text disappears (or was already gone).
       const needle = watch.element_text!.trim();
       extracted = pageContainsText(html, needle)
         ? needle
@@ -101,46 +275,30 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     }
 
     if (!extracted) {
-      const { error: missError } = await supabase
-        .from("watches")
-        .update({ last_checked: now, updated_at: now })
-        .eq("id", watch.id);
-      if (missError) {
-        return {
-          watchId: watch.id,
-          status: "error",
-          message: missError.message,
-        };
-      }
-
+      await applyResult(supabase, {
+        watchId: watch.id,
+        outcome: "error",
+        errorCode: "selector_missing",
+        errorMessage: "Element not found on page",
+      });
       return {
         watchId: watch.id,
         status: "error",
+        code: "selector_missing",
         message: "Element not found on page",
       };
     }
 
     if (baselineOnly) {
-      const { error: baseError } = await supabase
-        .from("watches")
-        .update({
-          current_value: extracted,
-          last_checked: now,
-          updated_at: now,
-        })
-        .eq("id", watch.id);
-      if (baseError) {
-        return {
-          watchId: watch.id,
-          status: "error",
-          message: baseError.message,
-        };
-      }
-      return { watchId: watch.id, status: "unchanged" };
+      await applyResult(supabase, {
+        watchId: watch.id,
+        outcome: "baseline",
+        newValue: extracted,
+      });
+      return { watchId: watch.id, status: "baseline" };
     }
 
-    const compareMode = isPageMode ? "page" : watch.mode;
-
+    const compareMode = pageMode ? "page" : watch.mode;
     const changed = !valuesEqual(
       watch.current_value,
       extracted,
@@ -148,18 +306,10 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     );
 
     if (!changed) {
-      const { error: touchError } = await supabase
-        .from("watches")
-        .update({ last_checked: now, updated_at: now })
-        .eq("id", watch.id);
-      if (touchError) {
-        return {
-          watchId: watch.id,
-          status: "error",
-          message: touchError.message,
-        };
-      }
-
+      await applyResult(supabase, {
+        watchId: watch.id,
+        outcome: "unchanged",
+      });
       return { watchId: watch.id, status: "unchanged" };
     }
 
@@ -169,53 +319,44 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
       extracted,
     );
 
-    const { error: updateError } = await supabase
-      .from("watches")
-      .update({
-        current_value: extracted,
-        last_checked: now,
-        updated_at: now,
-      })
-      .eq("id", watch.id);
-    if (updateError) {
-      return {
-        watchId: watch.id,
-        status: "error",
-        message: updateError.message,
-      };
-    }
-
-    // Default true when column is missing/null (pre-migration rows).
-    if (watch.notify !== false) {
-      const { error: notifyError } = await supabase.from("notifications").insert({
-        user_id: watch.user_id,
-        watch_id: watch.id,
-        title: `${title} · ${watch.label}`,
-        body,
-        old_value: watch.current_value,
-        new_value: extracted,
-        read: false,
-      });
-      if (notifyError) {
-        return {
-          watchId: watch.id,
-          status: "error",
-          message: notifyError.message,
-        };
-      }
-    }
+    const key = dedupeKey(watch.id, watch.current_value, extracted);
+    const applied = await applyResult(supabase, {
+      watchId: watch.id,
+      outcome: "changed",
+      newValue: extracted,
+      notify: watch.notify !== false,
+      title: `${title} · ${watch.label}`,
+      body,
+      dedupeKey: key,
+      userId: watch.user_id,
+      oldValue: watch.current_value,
+    });
 
     return {
       watchId: watch.id,
       status: "changed",
       oldValue: watch.current_value,
       newValue: extracted,
+      notified: Boolean(applied?.notified),
     };
   } catch (error) {
+    const monitored = toMonitorError(error);
+    try {
+      await applyResult(supabase, {
+        watchId: watch.id,
+        outcome: "error",
+        errorCode: monitored.code,
+        errorMessage: monitored.message,
+      });
+    } catch (applyErr) {
+      console.error("Failed to persist watch error state:", applyErr);
+    }
+
     return {
       watchId: watch.id,
       status: "error",
-      message: error instanceof Error ? error.message : "Check failed",
+      code: monitored.code,
+      message: monitored.message,
     };
   }
 }
@@ -228,6 +369,55 @@ export async function runDueWatchChecks(
   changed: number;
   errors: number;
   skipped: number;
+  baselines: number;
+  results: CheckResult[];
+}> {
+  const supabase = createServiceClient();
+  const worker = `rinja-${Date.now().toString(36)}`;
+
+  const { data, error } = await supabase.rpc("claim_due_watches", {
+    p_limit: limit,
+    p_worker: worker,
+    p_lease_seconds: 120,
+    p_force: Boolean(options?.force),
+  });
+
+  if (error) {
+    // Fallback if migration not applied yet — keeps local/dev from hard-crashing.
+    console.warn(
+      "claim_due_watches unavailable, falling back to unlocked scan:",
+      error.message,
+    );
+    return runDueWatchChecksFallback(limit, options);
+  }
+
+  const watches = (data ?? []) as WatchRow[];
+  const results: CheckResult[] = [];
+
+  for (const watch of watches) {
+    results.push(await checkWatch(watch));
+  }
+
+  return {
+    checked: watches.length,
+    changed: results.filter((r) => r.status === "changed").length,
+    errors: results.filter((r) => r.status === "error").length,
+    skipped: results.filter((r) => r.status === "skipped").length,
+    baselines: results.filter((r) => r.status === "baseline").length,
+    results,
+  };
+}
+
+/** Legacy path without advisory locks — only if RPC missing. */
+async function runDueWatchChecksFallback(
+  limit = 25,
+  options?: { force?: boolean },
+): Promise<{
+  checked: number;
+  changed: number;
+  errors: number;
+  skipped: number;
+  baselines: number;
   results: CheckResult[];
 }> {
   const supabase = createServiceClient();
@@ -251,7 +441,6 @@ export async function runDueWatchChecks(
     .slice(0, limit);
 
   const results: CheckResult[] = [];
-
   for (const watch of due) {
     results.push(await checkWatch(watch));
   }
@@ -261,6 +450,7 @@ export async function runDueWatchChecks(
     changed: results.filter((r) => r.status === "changed").length,
     errors: results.filter((r) => r.status === "error").length,
     skipped: results.filter((r) => r.status === "skipped").length,
+    baselines: results.filter((r) => r.status === "baseline").length,
     results,
   };
 }

@@ -1,7 +1,10 @@
 # Runs Rinja monitoring on a schedule once the app is deployed.
-# Required GitHub repo secrets:
+#
+# Required GitHub repo secrets (Settings → Secrets and variables → Actions):
 #   MONITOR_URL           e.g. https://your-app.example.com/api/check-watches
-#   MONITOR_CRON_SECRET   same value as in production .env / Lovable env
+#   MONITOR_CRON_SECRET   must match MONITOR_CRON_SECRET in production env
+#
+# Do NOT append ?force=1 here — that bypasses due scheduling (use monitor:once locally).
 
 name: Monitor watches
 
@@ -20,13 +23,32 @@ jobs:
           MONITOR_URL: ${{ secrets.MONITOR_URL }}
           MONITOR_CRON_SECRET: ${{ secrets.MONITOR_CRON_SECRET }}
         run: |
-          if [ -z "$MONITOR_URL" ] || [ -z "$MONITOR_CRON_SECRET" ]; then
-            echo "Missing MONITOR_URL or MONITOR_CRON_SECRET secrets."
+          set -euo pipefail
+
+          if [ -z "${MONITOR_URL:-}" ] || [ -z "${MONITOR_CRON_SECRET:-}" ]; then
+            echo "::error::Missing MONITOR_URL or MONITOR_CRON_SECRET secrets."
             exit 1
           fi
 
-          curl -fsS --max-time 120 \
+          # Strip accidental ?force=1 from secret URL so schedule stays due-based.
+          BASE_URL="${MONITOR_URL%%\?*}"
+
+          echo "POST ${BASE_URL}"
+          BODY_FILE="$(mktemp)"
+          HTTP_CODE="$(curl -sS --max-time 120 \
+            -o "$BODY_FILE" \
+            -w "%{http_code}" \
             -X POST \
             -H "Authorization: Bearer ${MONITOR_CRON_SECRET}" \
             -H "Cache-Control: no-store" \
-            "$MONITOR_URL"
+            -H "Accept: application/json" \
+            "$BASE_URL")"
+
+          echo "HTTP ${HTTP_CODE}"
+          cat "$BODY_FILE"
+          echo
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Monitor endpoint returned HTTP ${HTTP_CODE}"
+            exit 1
+          fi

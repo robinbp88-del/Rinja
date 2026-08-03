@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { MonitorError } from "./monitoring/errors";
 
 const BLOCKED_HOSTNAMES = new Set([
   "localhost",
@@ -43,19 +44,19 @@ export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
   try {
     url = new URL(raw);
   } catch {
-    throw new Error("Invalid URL");
+    throw new MonitorError("dns", "Invalid URL");
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("Only http(s) URLs are allowed");
+    throw new MonitorError("ssrf", "Only http(s) URLs are allowed");
   }
   if (url.username || url.password) {
-    throw new Error("URLs with credentials are not allowed");
+    throw new MonitorError("ssrf", "URLs with credentials are not allowed");
   }
 
   const port = url.port;
   if (port && port !== "80" && port !== "443") {
-    throw new Error("Only ports 80 and 443 are allowed");
+    throw new MonitorError("ssrf", "Only ports 80 and 443 are allowed");
   }
 
   const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
@@ -65,19 +66,30 @@ export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
     host.endsWith(".local") ||
     host.endsWith(".internal")
   ) {
-    throw new Error("That host is not allowed");
+    throw new MonitorError("ssrf", "That host is not allowed");
   }
 
   if (isIP(host)) {
     if (isPrivateOrReservedIp(host)) {
-      throw new Error("Private or reserved IP addresses are not allowed");
+      throw new MonitorError(
+        "ssrf",
+        "Private or reserved IP addresses are not allowed",
+      );
     }
   } else {
-    const addrs = await lookup(host, { all: true });
-    if (!addrs.length) throw new Error("Could not resolve host");
+    let addrs: Array<{ address: string; family: number }>;
+    try {
+      addrs = await lookup(host, { all: true });
+    } catch {
+      throw new MonitorError("dns", "Could not resolve host");
+    }
+    if (!addrs.length) throw new MonitorError("dns", "Could not resolve host");
     for (const { address } of addrs) {
       if (isPrivateOrReservedIp(address)) {
-        throw new Error("Host resolves to a private or reserved address");
+        throw new MonitorError(
+          "ssrf",
+          "Host resolves to a private or reserved address",
+        );
       }
     }
   }
@@ -96,7 +108,7 @@ export async function readResponseTextLimited(
 ): Promise<string> {
   const declared = Number(response.headers.get("content-length") ?? NaN);
   if (Number.isFinite(declared) && declared > maxBytes) {
-    throw new Error("Response too large");
+    throw new MonitorError("too_large", "Response too large");
   }
 
   if (!response.body) return "";
@@ -111,7 +123,7 @@ export async function readResponseTextLimited(
     total += value.byteLength;
     if (total > maxBytes) {
       await reader.cancel();
-      throw new Error("Response too large");
+      throw new MonitorError("too_large", "Response too large");
     }
     chunks.push(value);
   }
@@ -165,13 +177,14 @@ export async function fetchSafeOutbound(
       return { response, finalUrl: current.href };
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        throw new Error("Request timed out");
+        throw new MonitorError("timeout", "Request timed out");
       }
+      if (error instanceof MonitorError) throw error;
       throw error;
     } finally {
       clearTimeout(timer);
     }
   }
 
-  throw new Error("Too many redirects");
+  throw new MonitorError("unknown", "Too many redirects");
 }

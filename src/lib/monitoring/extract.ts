@@ -3,6 +3,7 @@ import {
   fetchSafeOutbound,
   readResponseTextLimited,
 } from "../outbound-url";
+import { MonitorError } from "./errors";
 
 export function extractValue(
   html: string,
@@ -59,17 +60,81 @@ export function pageContainsText(html: string, needle: string): boolean {
   return haystack.includes(n);
 }
 
+/** Heuristic quality of fetched HTML for monitoring usefulness. */
+export function scoreFetchedHtml(
+  html: string,
+): "ok" | "empty_html" | "js_shell" {
+  const trimmed = html.replace(/\s+/g, " ").trim();
+  if (trimmed.length < 40) return "empty_html";
+
+  const { document } = parseHTML(html);
+  const text = (document.body?.textContent ?? "").replace(/\s+/g, " ").trim();
+  const scripts = (html.match(/<script\b/gi) ?? []).length;
+
+  if (text.length < 80 && scripts >= 3) return "js_shell";
+  if (text.length < 20) return "empty_html";
+
+  return "ok";
+}
+
 export async function fetchPageHtml(url: string): Promise<string> {
-  const { response } = await fetchSafeOutbound(url);
+  let response: Response;
+  try {
+    const fetched = await fetchSafeOutbound(url);
+    response = fetched.response;
+  } catch (error) {
+    if (error instanceof MonitorError) throw error;
+    const message = error instanceof Error ? error.message : "Fetch failed";
+    if (message.toLowerCase().includes("timed out")) {
+      throw new MonitorError("timeout", message);
+    }
+    if (
+      message.toLowerCase().includes("could not resolve") ||
+      message.toLowerCase().includes("enotfound")
+    ) {
+      throw new MonitorError("dns", message);
+    }
+    if (message.toLowerCase().includes("too large")) {
+      throw new MonitorError("too_large", message);
+    }
+    if (
+      message.toLowerCase().includes("not allowed") ||
+      message.toLowerCase().includes("private")
+    ) {
+      throw new MonitorError("ssrf", message);
+    }
+    throw new MonitorError("unknown", message);
+  }
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+    const status = response.status;
+    if (status === 403) {
+      throw new MonitorError("http_403", `Failed to fetch ${url}: HTTP 403`);
+    }
+    if (status === 429) {
+      throw new MonitorError("http_429", `Failed to fetch ${url}: HTTP 429`);
+    }
+    throw new MonitorError(
+      "http_other",
+      `Failed to fetch ${url}: HTTP ${status}`,
+    );
   }
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("text/html")) {
-    throw new Error(`Unsupported content type for ${url}: ${contentType}`);
+    throw new MonitorError(
+      "unsupported",
+      `Unsupported content type for ${url}: ${contentType}`,
+    );
   }
 
-  return readResponseTextLimited(response);
+  try {
+    return await readResponseTextLimited(response);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Read failed";
+    if (message.toLowerCase().includes("too large")) {
+      throw new MonitorError("too_large", message);
+    }
+    throw new MonitorError("unknown", message);
+  }
 }

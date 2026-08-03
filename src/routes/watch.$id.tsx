@@ -27,6 +27,9 @@ import {
   getWatchById,
   setWatchNotify,
   setWatchPaused,
+  watchHealthMessage,
+  watchNextCheckLabel,
+  watchStatusLine,
 } from "../lib/watches";
 import { requireAuth } from "../lib/requireAuth";
 
@@ -181,9 +184,9 @@ function WatchDetail() {
     !watch.selector?.trim() && Boolean(watch.element_text?.trim());
 
   const currentValue = isPageWatch
-    ? watch.current_value?.trim()
-      ? "Page snapshot active"
-      : "Waiting for first check"
+    ? watch.baseline_pending || !watch.current_value?.trim()
+      ? "Waiting for first check"
+      : "Page snapshot active"
     : watch.current_value?.trim() || "No value yet";
 
   const valueCaption = isPageWatch
@@ -191,6 +194,10 @@ function WatchDetail() {
     : isPasteWatch
       ? "Watched text"
       : "Current value";
+
+  const healthMessage = watchHealthMessage(watch);
+  const nextCheck = watchNextCheckLabel(watch);
+  const statusLine = watchStatusLine(watch);
 
   const alertsOn = watch.notify !== false;
 
@@ -267,10 +274,12 @@ function WatchDetail() {
           className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-widest ${
             watch.paused
               ? "bg-muted text-muted-foreground"
-              : "bg-primary/15 text-primary"
+              : healthMessage
+                ? "bg-destructive/15 text-destructive"
+                : "bg-primary/15 text-primary"
           }`}
         >
-          {watch.paused ? "Paused" : "Live"}
+          {watch.paused ? "Paused" : healthMessage ? "Issue" : "Live"}
         </span>
       </header>
 
@@ -292,6 +301,10 @@ function WatchDetail() {
             No preview needed — I’ll alert you when the page content changes.
           </p>
         ) : null}
+
+        {healthMessage ? (
+          <p className="mt-3 text-[13px] text-destructive">{healthMessage}</p>
+        ) : null}
       </section>
 
       <section className="mt-8 px-6">
@@ -306,6 +319,18 @@ function WatchDetail() {
             icon={Clock}
             label="Frequency"
             value={frequency}
+          />
+
+          <InfoRow
+            icon={RefreshCw}
+            label="Status"
+            value={statusLine}
+          />
+
+          <InfoRow
+            icon={Clock}
+            label="Next check"
+            value={nextCheck}
           />
 
           <InfoRow
