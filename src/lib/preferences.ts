@@ -29,10 +29,10 @@ export async function getPreferences(): Promise<UserPreferences> {
 
   if (data) return data as UserPreferences;
 
-  // Default until the user saves a choice.
+  // Default until the user saves a choice. Email is not enabled yet.
   return {
     user_id: user.id,
-    email_digest: "daily",
+    email_digest: "none",
     digest_last_sent_at: null,
     updated_at: new Date().toISOString(),
   };

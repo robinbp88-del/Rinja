@@ -149,7 +149,7 @@ function Profile() {
           >
             <Settings className="h-4 w-4 text-muted-foreground" />
             <span className="flex-1 text-sm">Settings</span>
-            <span className="text-xs text-muted-foreground">Email</span>
+            <span className="text-xs text-muted-foreground">Alerts</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
           <Row icon={LifeBuoy} label="Support" />

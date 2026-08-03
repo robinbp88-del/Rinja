@@ -18,7 +18,7 @@ export async function getUserEmailDigest(
     .eq("user_id", userId)
     .maybeSingle();
 
-  return (data?.email_digest as EmailDigest | undefined) ?? "daily";
+  return (data?.email_digest as EmailDigest | undefined) ?? "none";
 }
 
 export async function sendImmediateChangeEmail(input: {
@@ -69,7 +69,7 @@ export async function runDailyDigests(): Promise<{
       .eq("user_id", userId)
       .maybeSingle();
 
-    const mode = (pref?.email_digest as EmailDigest | undefined) ?? "daily";
+    const mode = (pref?.email_digest as EmailDigest | undefined) ?? "none";
     if (mode !== "daily") {
       skipped += 1;
       continue;
