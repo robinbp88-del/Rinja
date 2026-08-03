@@ -135,9 +135,12 @@ function Home() {
         <h1 className="text-[36px] font-semibold leading-[1.1] tracking-tight">
           What should I keep an eye on?
         </h1>
+        <p className="mt-3 text-[14px] leading-snug text-muted-foreground">
+          1) Paste a URL · 2) Tap what matters · 3) I’ll alert you on change
+        </p>
       </section>
 
-      <section className="mt-10 px-6">
+      <section className="mt-8 px-6">
         <div className="flex items-center gap-3 rounded-full border border-border bg-card py-2 pl-5 pr-2">
           <input
             type="text"
@@ -192,24 +195,37 @@ function Home() {
       </section>
 
       <section className="mt-14 px-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-[17px] font-semibold tracking-tight">
             Watching for you
+            {watches.length > 0 ? (
+              <span className="ml-2 text-[13px] font-medium text-muted-foreground">
+                {watches.length}
+              </span>
+            ) : null}
           </h2>
 
-          <button
-            type="button"
-            onClick={() => watchesQuery.refetch()}
-            disabled={watchesQuery.isFetching}
-            aria-label="Refresh watches"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-card hover:text-primary disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${
-                watchesQuery.isFetching ? "animate-spin" : ""
-              }`}
-            />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link
+              to="/add"
+              className="rounded-full px-3 py-1.5 text-[12px] font-medium text-primary"
+            >
+              Add
+            </Link>
+            <button
+              type="button"
+              onClick={() => watchesQuery.refetch()}
+              disabled={watchesQuery.isFetching}
+              aria-label="Refresh watches"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-card hover:text-primary disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${
+                  watchesQuery.isFetching ? "animate-spin" : ""
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {watchesQuery.isLoading ? (
@@ -234,7 +250,7 @@ function Home() {
             </button>
           </div>
         ) : watches.length === 0 ? (
-          <div className="mt-6 rounded-3xl border border-dashed border-border bg-card/40 p-10 text-center">
+          <div className="mt-6 rounded-3xl border border-dashed border-border bg-card/40 p-8 text-center">
             <img
               src={binoculars}
               alt=""
@@ -244,15 +260,24 @@ function Home() {
               className="mx-auto h-20 w-20 opacity-90"
             />
 
-            <p className="mt-4 text-[15px] font-medium">I'm ready.</p>
+            <p className="mt-4 text-[15px] font-medium">Nothing on my list yet.</p>
 
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              Tell me what to watch.
+            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+              Paste a URL above, open the page, tap the price or text you care
+              about — then I’ll watch it for you.
             </p>
+
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/add" })}
+              className="mt-5 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              Add your first watch
+            </button>
           </div>
         ) : (
           <div className="mt-6 space-y-3">
-            {watches.slice(0, 4).map((watch) => (
+            {watches.map((watch) => (
               <Link
                 key={watch.id}
                 to="/watch/$id"
@@ -269,7 +294,9 @@ function Home() {
                   </p>
 
                   <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
-                    {watch.paused ? "Paused" : "No changes"}
+                    {watch.paused
+                      ? "Paused"
+                      : watch.current_value?.trim() || "Watching"}
                   </p>
 
                   <p className="mt-0.5 truncate text-[11px] text-muted-foreground">

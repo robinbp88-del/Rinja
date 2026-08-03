@@ -46,6 +46,21 @@ function Welcome() {
           <br />
           Get notified when it changes.
         </p>
+
+        <ol className="mt-6 w-full max-w-xs space-y-2 text-left text-[13px] text-muted-foreground">
+          <li className="flex gap-3 rounded-2xl border border-border/70 bg-card/50 px-3.5 py-2.5">
+            <span className="font-semibold text-primary">1</span>
+            <span>Paste a webpage URL</span>
+          </li>
+          <li className="flex gap-3 rounded-2xl border border-border/70 bg-card/50 px-3.5 py-2.5">
+            <span className="font-semibold text-primary">2</span>
+            <span>Tap what you want me to watch</span>
+          </li>
+          <li className="flex gap-3 rounded-2xl border border-border/70 bg-card/50 px-3.5 py-2.5">
+            <span className="font-semibold text-primary">3</span>
+            <span>Get an alert when it changes</span>
+          </li>
+        </ol>
       </div>
 
       <div className="flex flex-col gap-3 pb-10">

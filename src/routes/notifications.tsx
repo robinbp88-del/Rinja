@@ -91,7 +91,21 @@ function Notifications() {
               </div>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <div className="rounded-3xl border border-dashed border-border bg-card/40 p-6 text-center">
+            <p className="text-[14px] font-medium">No alerts yet</p>
+            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+              When something you watch changes, it shows up here. Start by
+              adding a URL and highlighting a price or text.
+            </p>
+            <Link
+              to="/add"
+              className="mt-5 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              Add a watch
+            </Link>
+          </div>
+        )}
       </div>
 
       <BottomNav />

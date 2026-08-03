@@ -43,7 +43,8 @@ function AddWatch() {
 
       <h1 className="text-[28px] font-semibold tracking-tight">Add a watch</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Paste any URL. You'll pick what to monitor on the next screen.
+        Paste any URL. Next you’ll tap the price, stock text, or element I
+        should watch — then I’ll alert you when it changes.
       </p>
 
       <div className="mt-8 flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">
