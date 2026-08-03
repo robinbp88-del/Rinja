@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUp,
   ChevronRight,
@@ -13,7 +13,7 @@ import {
 import { BottomNav } from "../components/BottomNav";
 import { RinjaMascot } from "../components/RinjaMascot";
 import { watchConditionLabel } from "../lib/watch-labels";
-import { getWatches, watchStatusLine } from "../lib/watches";
+import { deleteWatch, getWatches, watchStatusLine } from "../lib/watches";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
@@ -56,14 +56,27 @@ function timeAgo(value: string | number | null | undefined) {
 
 function Home() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user: authUser } = useAuth();
 
   const [query, setQuery] = useState("");
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const watchesQuery = useQuery({
     queryKey: ["watches", authUser?.id],
     queryFn: getWatches,
     enabled: Boolean(authUser),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (watchId: string) => deleteWatch(watchId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["watches"] });
+      setRemovingId(null);
+    },
+    onError: () => {
+      setRemovingId(null);
+    },
   });
 
   const alertsQuery = useQuery({
@@ -266,46 +279,74 @@ function Home() {
         ) : (
           <div className="mt-6 space-y-3">
             {watches.map((watch) => (
-              <Link
+              <div
                 key={watch.id}
-                to="/watch/$id"
-                params={{ id: watch.id }}
-                className="flex items-center gap-4 rounded-3xl border border-border bg-card p-4 transition active:scale-[0.99]"
+                className="flex items-center gap-2 rounded-3xl border border-border bg-card p-3 pr-2 transition"
               >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-[13px] font-semibold text-primary">
-                  {(watch.host ?? "WE").slice(0, 2).toUpperCase()}
-                </div>
+                <Link
+                  to="/watch/$id"
+                  params={{ id: watch.id }}
+                  className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-1 py-1 transition active:scale-[0.99]"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-[13px] font-semibold text-primary">
+                    {(watch.host ?? "WE").slice(0, 2).toUpperCase()}
+                  </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold">
-                    {watch.label}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-semibold">
+                      {watch.label}
+                    </p>
 
-                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
-                    {watch.host ?? "webpage"} · {watchConditionLabel(watch)}
-                  </p>
+                    <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                      {watch.host ?? "webpage"} · {watchConditionLabel(watch)}
+                    </p>
 
-                  <p
-                    className={`mt-0.5 truncate text-[12px] ${
-                      watch.check_status === "error" ||
-                      watch.check_status === "blocked" ||
-                      watch.check_status === "unsupported"
-                        ? "text-destructive"
-                        : watch.check_status === "changed"
-                          ? "text-primary"
-                          : "text-muted-foreground"
-                    }`}
-                  >
-                    {watchStatusLine(watch)}
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {timeAgo(watch.last_checked ?? watch.created_at)}
-                    </span>
-                  </p>
-                </div>
+                    <p
+                      className={`mt-0.5 truncate text-[12px] ${
+                        watch.check_status === "error" ||
+                        watch.check_status === "blocked" ||
+                        watch.check_status === "unsupported"
+                          ? "text-destructive"
+                          : watch.check_status === "changed"
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                      }`}
+                    >
+                      {watchStatusLine(watch)}
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {timeAgo(watch.last_checked ?? watch.created_at)}
+                      </span>
+                    </p>
+                  </div>
 
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+
+                <button
+                  type="button"
+                  aria-label={`Remove ${watch.label}`}
+                  disabled={removingId === watch.id && deleteMutation.isPending}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (deleteMutation.isPending) return;
+                    const ok = window.confirm(
+                      `Remove “${watch.label}” from My watches?`,
+                    );
+                    if (!ok) return;
+                    setRemovingId(watch.id);
+                    deleteMutation.mutate(watch.id);
+                  }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  {removingId === watch.id && deleteMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <X className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
             ))}
           </div>
         )}
