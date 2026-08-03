@@ -22,17 +22,6 @@ export const Route = createFileRoute("/home")({
   component: Home,
 });
 
-const SUGGESTIONS = [
-  { label: "Finn.no", url: "https://www.finn.no/" },
-  { label: "Prisjakt", url: "https://www.prisjakt.no/" },
-  { label: "Yr", url: "https://www.yr.no/nb" },
-  { label: "XXL", url: "https://www.xxl.no/" },
-  { label: "Vinmonopolet", url: "https://www.vinmonopolet.no/" },
-  { label: "VG", url: "https://www.vg.no/" },
-  { label: "NRK", url: "https://www.nrk.no/" },
-  { label: "Tek.no", url: "https://www.tek.no/" },
-];
-
 function timeAgo(value: string | number | null | undefined) {
   if (!value) return "not checked yet";
 
@@ -172,26 +161,9 @@ function Home() {
         </div>
 
         <p className="mt-4 text-[12px] text-muted-foreground">
-          Sites that work well with Rinja
+          Paste the full page URL (product, listing, article) — not just the
+          site home page.
         </p>
-
-        <div className="mt-3 flex flex-wrap gap-2.5">
-          {SUGGESTIONS.map((suggestion) => (
-            <button
-              type="button"
-              key={suggestion.url}
-              onClick={() =>
-                navigate({
-                  to: "/add",
-                  search: { url: suggestion.url } as never,
-                })
-              }
-              className="rounded-full border border-border bg-card px-4 py-2 text-[13px] text-muted-foreground transition hover:border-primary/40 hover:text-primary"
-            >
-              {suggestion.label}
-            </button>
-          ))}
-        </div>
       </section>
 
       <section className="mt-14 px-6">
