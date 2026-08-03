@@ -98,12 +98,13 @@ function Notifications() {
         ) : hasAlerts ? (
           <div className="space-y-2">
             {notifications.map((item) => {
-              const changed = isChangeAlert(item);
+              // Glow only unread real changes — not old history like the Vaser false positive.
+              const highlight = isChangeAlert(item) && !item.read;
               return (
                 <div
                   key={item.id}
                   className={
-                    changed
+                    highlight
                       ? "rounded-2xl border bg-card p-4 alert-change-glow"
                       : "rounded-2xl border border-border bg-card p-4"
                   }
