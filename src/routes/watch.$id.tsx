@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import {
   deleteWatch,
   getWatchById,
@@ -62,6 +63,7 @@ function WatchDetail() {
 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (watchQuery.data?.label) {
@@ -268,14 +270,7 @@ function WatchDetail() {
 
   const handleDelete = () => {
     if (deleteMutation.isPending) return;
-
-    const confirmed = window.confirm(
-      "Delete this watch permanently?",
-    );
-
-    if (confirmed) {
-      deleteMutation.mutate(watch.id);
-    }
+    setConfirmDeleteOpen(true);
   };
 
   const handleOpenWebsite = () => {
@@ -532,6 +527,23 @@ function WatchDetail() {
           )}
         </button>
       </section>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setConfirmDeleteOpen(false);
+        }}
+        title="Delete this watch?"
+        description="This removes the watch permanently. You can add it again anytime."
+        confirmLabel="Delete"
+        cancelLabel="Keep watching"
+        destructive
+        busy={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteMutation.isPending) return;
+          deleteMutation.mutate(watch.id);
+        }}
+      />
     </div>
   );
 }

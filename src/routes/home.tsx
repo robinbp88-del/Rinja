@@ -11,9 +11,15 @@ import {
 } from "lucide-react";
 
 import { BottomNav } from "../components/BottomNav";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { RinjaMascot } from "../components/RinjaMascot";
 import { watchConditionLabel } from "../lib/watch-labels";
-import { deleteWatch, getWatches, watchStatusLine } from "../lib/watches";
+import {
+  deleteWatch,
+  getWatches,
+  watchStatusLine,
+  type DatabaseWatch,
+} from "../lib/watches";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
@@ -61,6 +67,9 @@ function Home() {
 
   const [query, setQuery] = useState("");
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [watchToRemove, setWatchToRemove] = useState<DatabaseWatch | null>(
+    null,
+  );
 
   const watchesQuery = useQuery({
     queryKey: ["watches", authUser?.id],
@@ -332,12 +341,7 @@ function Home() {
                     event.preventDefault();
                     event.stopPropagation();
                     if (deleteMutation.isPending) return;
-                    const ok = window.confirm(
-                      `Remove “${watch.label}” from My watches?`,
-                    );
-                    if (!ok) return;
-                    setRemovingId(watch.id);
-                    deleteMutation.mutate(watch.id);
+                    setWatchToRemove(watch);
                   }}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
                 >
@@ -369,6 +373,30 @@ function Home() {
           </Link>
         </section>
       )}
+
+      <ConfirmDialog
+        open={Boolean(watchToRemove)}
+        onOpenChange={(open) => {
+          if (!open && !deleteMutation.isPending) setWatchToRemove(null);
+        }}
+        title="Remove this watch?"
+        description={
+          watchToRemove
+            ? `“${watchToRemove.label}” will be removed from My watches. You can add it again anytime.`
+            : ""
+        }
+        confirmLabel="Remove"
+        cancelLabel="Keep watching"
+        destructive
+        busy={deleteMutation.isPending}
+        onConfirm={() => {
+          if (!watchToRemove || deleteMutation.isPending) return;
+          setRemovingId(watchToRemove.id);
+          deleteMutation.mutate(watchToRemove.id, {
+            onSettled: () => setWatchToRemove(null),
+          });
+        }}
+      />
 
       <BottomNav />
     </div>
