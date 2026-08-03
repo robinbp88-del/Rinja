@@ -62,7 +62,8 @@ export async function createWatch(
       host: input.host,
       title: input.title,
       label: input.label,
-      current_value: input.currentValue,
+      // Empty string can violate some DB checks; null is fine for baseline page watches.
+      current_value: input.currentValue.trim() ? input.currentValue : null,
       selector: input.selector,
       element_text: input.elementText,
       element_tag: input.elementTag,
@@ -75,7 +76,12 @@ export async function createWatch(
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(
+      [error.message, error.details, error.hint].filter(Boolean).join(" — ") ||
+        "Could not create watch",
+    );
+  }
 
   return data as DatabaseWatch;
 }
@@ -92,6 +98,31 @@ export async function getWatches(): Promise<DatabaseWatch[]> {
   if (error) throw error;
 
   return (data ?? []) as DatabaseWatch[];
+}
+
+/** Short status line for home / lists. */
+export function watchStatusLine(watch: DatabaseWatch): string {
+  if (watch.paused) return "Paused";
+
+  const isPage =
+    watch.mode === "page" || watch.element_tag === "page";
+  if (isPage) {
+    return watch.current_value?.trim()
+      ? "Watching whole page"
+      : "Baseline pending — first check soon";
+  }
+
+  const isPaste =
+    !watch.selector?.trim() && Boolean(watch.element_text?.trim());
+  if (isPaste) {
+    if (watch.current_value === "Not found on page") {
+      return "Text missing on page";
+    }
+    const snippet = watch.element_text!.trim().slice(0, 36);
+    return `Watching “${snippet}${watch.element_text!.trim().length > 36 ? "…" : ""}”`;
+  }
+
+  return watch.current_value?.trim() || "Watching";
 }
 
 export async function getWatchById(

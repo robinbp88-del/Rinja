@@ -11,7 +11,7 @@ import {
 
 import { BottomNav } from "../components/BottomNav";
 import { RinjaMascot } from "../components/RinjaMascot";
-import { getWatches } from "../lib/watches";
+import { getWatches, watchStatusLine } from "../lib/watches";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
@@ -294,9 +294,7 @@ function Home() {
                   </p>
 
                   <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
-                    {watch.paused
-                      ? "Paused"
-                      : watch.current_value?.trim() || "Watching"}
+                    {watchStatusLine(watch)}
                   </p>
 
                   <p className="mt-0.5 truncate text-[11px] text-muted-foreground">

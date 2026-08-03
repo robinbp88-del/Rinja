@@ -175,8 +175,22 @@ function WatchDetail() {
     watch.frequency ??
     "Not set";
 
-  const currentValue =
-    watch.current_value?.trim() || "No value yet";
+  const isPageWatch =
+    watch.mode === "page" || watch.element_tag === "page";
+  const isPasteWatch =
+    !watch.selector?.trim() && Boolean(watch.element_text?.trim());
+
+  const currentValue = isPageWatch
+    ? watch.current_value?.trim()
+      ? "Page snapshot active"
+      : "Waiting for first check"
+    : watch.current_value?.trim() || "No value yet";
+
+  const valueCaption = isPageWatch
+    ? "Whole page"
+    : isPasteWatch
+      ? "Watched text"
+      : "Current value";
 
   const alertsOn = watch.notify !== false;
 
@@ -211,6 +225,12 @@ function WatchDetail() {
   };
 
   const handleOpenWebsite = () => {
+    // Page/paste watches don't need the in-app highlighter.
+    if (isPageWatch || isPasteWatch) {
+      window.open(watch.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     navigate({
       to: "/highlight",
       search: {
@@ -256,12 +276,22 @@ function WatchDetail() {
 
       <section className="mt-8 px-6 text-center">
         <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-          Current value
+          {valueCaption}
         </p>
 
-        <p className="mt-2 break-words text-4xl font-semibold tabular-nums tracking-tight">
+        <p
+          className={`mt-2 break-words font-semibold tracking-tight ${
+            isPageWatch ? "text-xl" : "text-4xl tabular-nums"
+          }`}
+        >
           {currentValue}
         </p>
+
+        {isPageWatch ? (
+          <p className="mt-3 text-[13px] text-muted-foreground">
+            No preview needed — I’ll alert you when the page content changes.
+          </p>
+        ) : null}
       </section>
 
       <section className="mt-8 px-6">

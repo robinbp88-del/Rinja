@@ -42,6 +42,7 @@ export type WatchRow = {
   current_value: string | null;
   selector: string | null;
   element_text: string | null;
+  element_tag: string | null;
   mode: WatchMode | string | null;
   frequency: WatchFrequency | string | null;
   paused: boolean;
@@ -66,10 +67,12 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     return { watchId: watch.id, status: "skipped", reason: "paused" };
   }
 
-  const isPageMode = watch.mode === "page";
+  const isPageMode =
+    watch.mode === "page" || watch.element_tag === "page";
   const hasSelector = Boolean(watch.selector?.trim());
   const hasText = Boolean(watch.element_text?.trim());
 
+  // Page watches only need a URL; paste watches need text; else need a selector.
   if (!isPageMode && !hasSelector && !hasText) {
     return { watchId: watch.id, status: "skipped", reason: "no selector" };
   }
@@ -136,10 +139,12 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
       return { watchId: watch.id, status: "unchanged" };
     }
 
+    const compareMode = isPageMode ? "page" : watch.mode;
+
     const changed = !valuesEqual(
       watch.current_value,
       extracted,
-      watch.mode,
+      compareMode,
     );
 
     if (!changed) {
@@ -159,7 +164,7 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     }
 
     const { title, body } = changeSummary(
-      watch.mode,
+      compareMode,
       watch.current_value,
       extracted,
     );

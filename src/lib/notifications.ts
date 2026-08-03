@@ -69,5 +69,7 @@ export async function createStartedNotification(input: {
     read: false,
   });
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(error.message || "Could not create notification");
+  }
 }

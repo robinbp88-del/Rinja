@@ -18,6 +18,19 @@ export const Route = createFileRoute("/setup")({
   component: SetupWatch,
 });
 
+function errorMessage(err: unknown, fallback = "Could not create watch") {
+  if (err instanceof Error && err.message) return err.message;
+  if (
+    err &&
+    typeof err === "object" &&
+    "message" in err &&
+    typeof (err as { message: unknown }).message === "string"
+  ) {
+    return (err as { message: string }).message;
+  }
+  return fallback;
+}
+
 function SetupWatch() {
   const navigate = useNavigate();
   const { url, intent } = Route.useSearch();
@@ -38,24 +51,29 @@ function SetupWatch() {
         title: host,
         label: `Page · ${host}`,
         currentValue: "",
-        selector: "",
+        // Some DB schemas require a non-empty selector; page mode ignores it.
+        selector: "html",
         elementText: "",
         elementTag: "page",
         elementHtml: "",
-        mode: "page",
+        mode: "any",
         frequency: "15m",
         notify: true,
       });
 
-      await createStartedNotification({
-        watchId: created.id,
-        label: created.label,
-        host,
-      });
+      try {
+        await createStartedNotification({
+          watchId: created.id,
+          label: created.label,
+          host,
+        });
+      } catch (notifyErr) {
+        console.warn("Watch created, notification failed:", notifyErr);
+      }
 
       navigate({ to: "/home" });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not create watch");
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -87,15 +105,19 @@ function SetupWatch() {
         notify: true,
       });
 
-      await createStartedNotification({
-        watchId: created.id,
-        label: created.label,
-        host,
-      });
+      try {
+        await createStartedNotification({
+          watchId: created.id,
+          label: created.label,
+          host,
+        });
+      } catch (notifyErr) {
+        console.warn("Watch created, notification failed:", notifyErr);
+      }
 
       navigate({ to: "/home" });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not create watch");
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
