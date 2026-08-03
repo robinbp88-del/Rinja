@@ -7,6 +7,7 @@ import {
   Bell,
   Loader2,
   RefreshCw,
+  X,
 } from "lucide-react";
 
 import { BottomNav } from "../components/BottomNav";
@@ -134,7 +135,7 @@ function Home() {
       </section>
 
       <section className="mt-8 px-6">
-        <div className="flex items-center gap-3 rounded-full border border-border bg-card py-2 pl-5 pr-2">
+        <div className="flex items-center gap-2 rounded-full border border-border bg-card py-2 pl-5 pr-2">
           <input
             type="text"
             value={query}
@@ -148,6 +149,17 @@ function Home() {
             placeholder="Paste a webpage URL..."
             className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-muted-foreground"
           />
+
+          {hasQuery ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
 
           <button
             type="button"

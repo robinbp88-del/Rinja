@@ -17,9 +17,9 @@ export function watchConditionLabel(watch: DatabaseWatch): string {
 
   switch (watch.mode) {
     case "price":
-      return "When the price text changes";
+      return "When this text changes";
     case "stock":
-      return "When availability text changes";
+      return "When this text changes";
     case "image":
       return "When the image changes";
     case "any":

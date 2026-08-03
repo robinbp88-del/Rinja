@@ -6,8 +6,6 @@ import {
   Loader2,
   MousePointerClick,
   Check,
-  Tag,
-  Package,
   Type,
   Image as ImageIcon,
   Sparkles,
@@ -395,7 +393,7 @@ function Highlight() {
                 })
               }
             >
-              paste a price
+              paste text
             </button>
             {" · "}
             <button
@@ -602,23 +600,18 @@ function ImagePreview({ html }: { html: string }) {
 type Option = {
   value: WatchMode;
   label: string;
-  icon: typeof Tag;
+  icon: typeof Type;
 };
 
 function optionsFor(kind: ElementKind): Option[] {
   const options: Option[] = [];
 
-  if (kind === "price") {
+  if (kind === "price" || kind === "stock") {
+    // Keep mode for compare heuristics, but don't promise dedicated stock/price APIs.
     options.push({
-      value: "price",
-      label: "Price",
-      icon: Tag,
-    });
-  } else if (kind === "stock") {
-    options.push({
-      value: "stock",
-      label: "Stock",
-      icon: Package,
+      value: kind === "price" ? "price" : "stock",
+      label: "This text",
+      icon: Type,
     });
   } else if (kind === "image") {
     options.push({

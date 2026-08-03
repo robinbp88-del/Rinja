@@ -234,9 +234,8 @@ function SetupWatch() {
             Paste the text to watch
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            On the site, copy the exact words you care about (price, “in stock”,
-            a title…). Paste them here — I&apos;ll alert you if they leave the
-            page.
+            On the site, copy the exact words you care about. Paste them here —
+            I&apos;ll alert you if they leave the page.
           </p>
 
           <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/50 px-4 py-3">
@@ -283,7 +282,7 @@ function SetupWatch() {
               }}
               rows={4}
               autoFocus
-              placeholder='e.g. "In stock" or 1 299'
+              placeholder="e.g. Sold out · Available · 1 299"
               className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[15px] outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
             />
           </label>

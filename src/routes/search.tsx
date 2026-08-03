@@ -1,6 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Eye, Search as SearchIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Eye,
+  Search as SearchIcon,
+  X,
+} from "lucide-react";
 import { z } from "zod";
 
 import { BottomNav } from "../components/BottomNav";
@@ -11,6 +17,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { RinjaMascot } from "../components/RinjaMascot";
 import { requireAuth } from "../lib/requireAuth";
 import { supabase } from "../lib/supabase";
+import {
+  addRecentSearch,
+  clearRecentSearches,
+  getRecentSearches,
+  removeRecentSearch,
+} from "../lib/recent-searches";
 
 const searchSchema = z.object({ q: z.string().optional() });
 
@@ -26,33 +38,9 @@ const INTENT_LABEL: Record<string, string> = {
   job: "Jobs",
   ticket: "Tickets",
   travel: "Trips",
-  price: "Prices",
-  availability: "Availability",
+  price: "Results",
+  availability: "Results",
   general: "Results",
-};
-
-function availabilityText(r: SearchResult): { label: string; tone: "ok" | "warn" | "out" } | null {
-  switch (r.availability) {
-    case "in_stock":
-      return { label: "In stock", tone: "ok" };
-    case "limited":
-      return { label: r.meta ?? "Limited", tone: "warn" };
-    case "out_of_stock":
-      return { label: "Out of stock", tone: "out" };
-    default:
-      return r.meta ? { label: r.meta, tone: "ok" } : null;
-  }
-}
-
-const SIGNALS: Record<string, string[]> = {
-  product: ["Price changes", "Stock changes"],
-  price: ["Price changes"],
-  availability: ["Stock changes"],
-  ticket: ["Price changes", "New listings"],
-  house: ["Price changes", "New listings"],
-  job: ["New listings"],
-  travel: ["Price changes"],
-  general: ["Any changes"],
 };
 
 function ResultCard({
@@ -62,8 +50,6 @@ function ResultCard({
   r: SearchResult;
   onTrack: () => void;
 }) {
-  const avail = availabilityText(r);
-  void SIGNALS;
   return (
     <div className="rounded-3xl border border-border bg-card p-4 transition-all duration-500">
       <div className="flex items-start gap-3">
@@ -80,29 +66,15 @@ function ResultCard({
             {r.source}
             {r.country ? ` · ${r.country}` : ""}
           </p>
-          {avail && (
-            <p
-              className={`mt-1 text-[11px] font-medium uppercase tracking-widest ${
-                avail.tone === "ok"
-                  ? "text-primary"
-                  : avail.tone === "warn"
-                    ? "text-amber-400"
-                    : "text-muted-foreground"
-              }`}
-            >
-              {avail.label}
-            </p>
-          )}
+          {r.meta ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">{r.meta}</p>
+          ) : null}
         </div>
-        {r.price && (
-          <p
-            className={`text-right text-[18px] font-semibold tabular-nums ${
-              r.availability === "out_of_stock" ? "text-muted-foreground line-through" : ""
-            }`}
-          >
+        {r.price ? (
+          <p className="text-right text-[18px] font-semibold tabular-nums">
             {r.price}
           </p>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-4 flex items-center gap-2">
@@ -115,10 +87,11 @@ function ResultCard({
           <ExternalLink className="h-4 w-4" /> Open
         </a>
         <button
+          type="button"
           onClick={onTrack}
           className="relative flex h-11 flex-1 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition-all duration-300 active:scale-[0.98]"
         >
-          <Eye className="h-4 w-4" strokeWidth={2.6} /> Track
+          <Eye className="h-4 w-4" strokeWidth={2.6} /> Watch
         </button>
       </div>
     </div>
@@ -127,8 +100,8 @@ function ResultCard({
 
 const THINKING_STEPS = [
   "Looking around…",
-  "Checking prices…",
-  "Comparing stores…",
+  "Checking a few sites…",
+  "Gathering links…",
   "Almost there…",
 ];
 
@@ -142,11 +115,7 @@ function LoadingState() {
   }, []);
   return (
     <div className="mt-16 flex flex-col items-center px-6 text-center">
-      {/* Dot Rinja follows — matches binocular scan period (2.4s) */}
-      <div
-        aria-hidden
-        className="relative h-6 w-[220px]"
-      >
+      <div aria-hidden className="relative h-6 w-[220px]">
         <span
           className="absolute top-1/2 left-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary"
           style={{
@@ -155,7 +124,12 @@ function LoadingState() {
           }}
         />
       </div>
-      <RinjaMascot variant="binoculars" mood="curious" size={168} className="-mt-2" />
+      <RinjaMascot
+        variant="binoculars"
+        mood="curious"
+        size={168}
+        className="-mt-2"
+      />
       <p
         key={step}
         className="mt-6 min-h-[22px] text-[15px] font-medium animate-fade-in"
@@ -176,15 +150,22 @@ function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
+  const [recent, setRecent] = useState<string[]>([]);
+
+  useEffect(() => {
+    setRecent(getRecentSearches());
+  }, []);
 
   useEffect(() => {
     const query = submittedQ.trim();
     if (!query) {
       setResponse(null);
+      setLoading(false);
+      setError(null);
       return;
     }
     if (isUrl(query)) {
-      navigate({ to: "/add", search: { url: query } as any });
+      navigate({ to: "/add", search: { url: query } as never });
       return;
     }
     let cancelled = false;
@@ -205,6 +186,7 @@ function SearchPage() {
         });
         if (cancelled) return;
         setResponse(res);
+        setRecent(addRecentSearch(query));
       } catch (err: unknown) {
         if (cancelled) return;
         const msg =
@@ -222,11 +204,30 @@ function SearchPage() {
 
   const submit = () => setSubmittedQ(q);
 
+  const clearInput = () => {
+    setQ("");
+    setSubmittedQ("");
+    setResponse(null);
+    setError(null);
+    void navigate({ to: "/search", search: { q: undefined } as never });
+  };
+
+  const removeRecent = (item: string) => {
+    setRecent(removeRecentSearch(item));
+  };
+
+  const clearAllRecent = () => {
+    clearRecentSearches();
+    setRecent([]);
+  };
+
   const track = (r: SearchResult) => {
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       try {
         navigator.vibrate?.(12);
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
 
     navigate({
@@ -235,13 +236,19 @@ function SearchPage() {
     });
   };
 
-  const heading = response ? INTENT_LABEL[response.intent] ?? "Results" : "Search";
+  const heading = response
+    ? (INTENT_LABEL[response.intent] ?? "Results")
+    : "Search";
+
+  const showRecent =
+    !loading && !error && !response && recent.length > 0 && !submittedQ.trim();
 
   return (
     <div className="min-h-screen pb-32">
       <header className="px-6 pt-10 screen-safe">
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => navigate({ to: "/home" })}
             aria-label="Back"
             className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
@@ -252,7 +259,7 @@ function SearchPage() {
         </div>
 
         <div className="mt-5 flex items-center gap-2 rounded-full border border-border bg-card px-4 py-3">
-          <SearchIcon className="h-4 w-4 text-muted-foreground" />
+          <SearchIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -263,8 +270,18 @@ function SearchPage() {
               }
             }}
             placeholder="Search or paste a webpage URL…"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
+          {q.trim() || submittedQ.trim() || response ? (
+            <button
+              type="button"
+              onClick={clearInput}
+              aria-label="Clear search"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -279,14 +296,14 @@ function SearchPage() {
 
       {!loading && !error && response && response.results.length > 0 && (
         <section className="mt-8 px-6">
-          <p className="text-[15px] font-medium">I found these.</p>
+          <p className="text-[15px] font-medium">I found these links.</p>
+          <p className="mt-1 text-[12px] text-muted-foreground">
+            Open a site in your browser, then paste the URL into Rinja to watch
+            it.
+          </p>
           <div className="mt-4 space-y-3">
             {response.results.map((r) => (
-              <ResultCard
-                key={r.id}
-                r={r}
-                onTrack={() => track(r)}
-              />
+              <ResultCard key={r.id} r={r} onTrack={() => track(r)} />
             ))}
           </div>
         </section>
@@ -294,12 +311,17 @@ function SearchPage() {
 
       {!loading && response && response.results.length === 0 && (
         <section className="mt-16 px-6 text-center">
-          <p className="text-[17px] font-semibold">I couldn't find anything yet.</p>
-          <p className="mt-2 text-[13px] text-muted-foreground">Try one of these instead.</p>
+          <p className="text-[17px] font-semibold">
+            I couldn&apos;t find anything yet.
+          </p>
+          <p className="mt-2 text-[13px] text-muted-foreground">
+            Try one of these instead — or paste a full URL on Home.
+          </p>
           <div className="mt-6 flex flex-wrap justify-center gap-2.5">
             {response.suggestions.map((s) => (
               <button
                 key={s}
+                type="button"
                 onClick={() => {
                   setQ(s);
                   setSubmittedQ(s);
@@ -313,10 +335,56 @@ function SearchPage() {
         </section>
       )}
 
-      {!loading && !response && (
+      {showRecent ? (
+        <section className="mt-8 px-6">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[13px] font-medium text-muted-foreground">
+              Recent
+            </p>
+            <button
+              type="button"
+              onClick={clearAllRecent}
+              className="text-[12px] font-medium text-primary"
+            >
+              Clear all
+            </button>
+          </div>
+          <ul className="mt-3 space-y-2">
+            {recent.map((item) => (
+              <li
+                key={item}
+                className="flex items-center gap-2 rounded-2xl border border-border bg-card"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQ(item);
+                    setSubmittedQ(item);
+                  }}
+                  className="min-w-0 flex-1 truncate px-4 py-3 text-left text-[14px]"
+                >
+                  {item}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeRecent(item)}
+                  aria-label={`Remove ${item}`}
+                  className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {!loading && !response && !showRecent && (
         <section className="mt-10 flex flex-col items-center px-6 text-center">
           <RinjaMascot variant="laptop" mood="thinking" size={200} />
-          <p className="mt-4 text-sm text-muted-foreground">What should I keep an eye on?</p>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Search for ideas, or paste a full page URL on Home to start a watch.
+          </p>
         </section>
       )}
 

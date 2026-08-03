@@ -102,11 +102,8 @@ export function changeSummary(
     };
   }
 
-  const label = mode === "price" ? "Price changed" : "Something changed";
-  const body =
-    mode === "price"
-      ? `${oldValue ?? "—"} → ${newValue}`
-      : `Was "${oldValue ?? "—"}", now "${newValue}"`;
-
-  return { title: label, body };
+  return {
+    title: "Something changed",
+    body: `Was "${oldValue ?? "—"}", now "${newValue}"`,
+  };
 }
