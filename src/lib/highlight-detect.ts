@@ -68,11 +68,11 @@ export function defaultModeFor(kind: ElementKind): WatchMode {
 export function labelFor(kind: ElementKind, mode: WatchMode, text: string) {
   const trimmed = text.trim().slice(0, 40);
 
-  if (mode === "price") return `Price · ${trimmed}`;
-  if (mode === "stock") return "Stock availability";
+  if (mode === "price" || mode === "stock" || mode === "text") {
+    return trimmed || "Text";
+  }
   if (mode === "image") return "Image";
-  if (mode === "text") return trimmed || "Text element";
-  if (mode === "custom") return trimmed || `${kind} element`;
+  if (mode === "custom") return trimmed || "Custom";
 
   return trimmed || "Any change";
 }
