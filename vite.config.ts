@@ -13,5 +13,7 @@ export default defineConfig({
 
   nitro: {
     preset: "vercel",
+    // Ensure tslib is traced into the Vercel serverless bundle (Supabase needs it).
+    traceDeps: ["tslib*"],
   },
 });
