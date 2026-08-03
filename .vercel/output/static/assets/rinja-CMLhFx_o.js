@@ -1,0 +1,1 @@
+var e=`/assets/rinja-BB-VYooE.png`;export{e as t};
