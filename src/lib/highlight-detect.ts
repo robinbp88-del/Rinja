@@ -52,10 +52,9 @@ export function detectKind(selection: PickerSelection | null): ElementKind {
 }
 
 export function kindLabel(kind: ElementKind) {
-  if (kind === "price") return "Price detected";
-  if (kind === "stock") return "Stock detected";
-  if (kind === "date") return "Date detected";
-  if (kind === "image") return "Image detected";
+  if (kind === "price" || kind === "stock") return "Text selected";
+  if (kind === "date") return "Date selected";
+  if (kind === "image") return "Image selected";
   return "Element selected";
 }
 
