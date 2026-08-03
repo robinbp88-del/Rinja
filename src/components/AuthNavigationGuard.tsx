@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { signOut } from "../lib/auth";
 import { useStore } from "../lib/store";
 import { useAuth } from "../providers/AuthProvider";
@@ -20,29 +21,52 @@ export function AuthNavigationGuard() {
     select: (s) => s.location.pathname,
   });
 
-  // Signed-in users should not remain on splash/welcome/login.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
   useEffect(() => {
     if (loading || !user) return;
     if (!AUTH_SCREENS.has(pathname)) return;
+    if (confirmOpen || loggingOut) return;
+    setConfirmOpen(true);
+  }, [loading, user, pathname, confirmOpen, loggingOut]);
 
-    const leave = window.confirm("Log out of Rinja?");
-    if (leave) {
-      void (async () => {
-        try {
-          await signOut();
-          clearLocalStore();
-          queryClient.clear();
-        } catch (error) {
-          console.error("Logout failed:", error);
-        } finally {
-          void navigate({ to: "/welcome", replace: true });
-        }
-      })();
-      return;
-    }
-
+  const staySignedIn = () => {
+    setConfirmOpen(false);
     void navigate({ to: "/home", replace: true });
-  }, [loading, user, pathname, navigate, clearLocalStore, queryClient]);
+  };
 
-  return null;
+  const confirmLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await signOut();
+      clearLocalStore();
+      queryClient.clear();
+      setConfirmOpen(false);
+      void navigate({ to: "/welcome", replace: true });
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setConfirmOpen(false);
+      void navigate({ to: "/home", replace: true });
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  return (
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={(open) => {
+        if (!open) staySignedIn();
+      }}
+      title="Log out of Rinja?"
+      description="You can sign back in anytime. Your watches stay saved."
+      confirmLabel="Log out"
+      cancelLabel="Stay signed in"
+      destructive
+      busy={loggingOut}
+      onConfirm={() => void confirmLogout()}
+    />
+  );
 }

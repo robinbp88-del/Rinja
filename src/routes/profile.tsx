@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { BottomNav } from "../components/BottomNav";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useStore } from "../lib/store";
 import { signOut } from "../lib/auth";
 import { getWatches } from "../lib/watches";
@@ -46,6 +47,7 @@ function Profile() {
 
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const displayName =
     authUser?.user_metadata?.name ??
@@ -54,11 +56,8 @@ function Profile() {
 
   const email = authUser?.email ?? "Signed in";
 
-  async function handleLogout() {
+  async function performLogout() {
     if (loggingOut) return;
-
-    const confirmed = window.confirm("Log out of Rinja?");
-    if (!confirmed) return;
 
     try {
       setLoggingOut(true);
@@ -67,6 +66,7 @@ function Profile() {
       await signOut();
       clearLocalStore();
       queryClient.clear();
+      setConfirmOpen(false);
 
       navigate({
         to: "/welcome",
@@ -158,7 +158,7 @@ function Profile() {
       <section className="mt-6 px-6">
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => setConfirmOpen(true)}
           disabled={loggingOut}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card p-4 text-sm font-medium text-destructive transition active:scale-[0.99] disabled:opacity-60"
         >
@@ -181,6 +181,18 @@ function Profile() {
           </p>
         )}
       </section>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Log out of Rinja?"
+        description="You can sign back in anytime. Your watches stay saved."
+        confirmLabel="Log out"
+        cancelLabel="Stay signed in"
+        destructive
+        busy={loggingOut}
+        onConfirm={() => void performLogout()}
+      />
 
       <BottomNav />
     </div>
