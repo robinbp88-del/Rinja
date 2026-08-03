@@ -9,77 +9,27 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AddRouteImport } from './routes/add'
-import { Route as HighlightRouteImport } from './routes/highlight'
-import { Route as HomeRouteImport } from './routes/home'
-import { Route as InterestsRouteImport } from './routes/interests'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as PremiumRouteImport } from './routes/premium'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as SearchRouteImport } from './routes/search'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as SetupRouteImport } from './routes/setup'
 import { Route as WelcomeRouteImport } from './routes/welcome'
-import { Route as ApiCheckWatchesRouteImport } from './routes/api/check-watches'
-import { Route as ApiProxyRouteImport } from './routes/api/proxy'
-import { Route as ApiSendDigestsRouteImport } from './routes/api/send-digests'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SearchRouteImport } from './routes/search'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PremiumRouteImport } from './routes/premium'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as InterestsRouteImport } from './routes/interests'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as HighlightRouteImport } from './routes/highlight'
+import { Route as AddRouteImport } from './routes/add'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
+import { Route as ApiSendDigestsRouteImport } from './routes/api/send-digests'
+import { Route as ApiProxyRouteImport } from './routes/api/proxy'
+import { Route as ApiCheckWatchesRouteImport } from './routes/api/check-watches'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AddRoute = AddRouteImport.update({
-  id: '/add',
-  path: '/add',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HighlightRoute = HighlightRouteImport.update({
-  id: '/highlight',
-  path: '/highlight',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InterestsRoute = InterestsRouteImport.update({
-  id: '/interests',
-  path: '/interests',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PremiumRoute = PremiumRouteImport.update({
-  id: '/premium',
-  path: '/premium',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SearchRoute = SearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -87,19 +37,64 @@ const SetupRoute = SetupRouteImport.update({
   path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WelcomeRoute = WelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCheckWatchesRoute = ApiCheckWatchesRouteImport.update({
-  id: '/api/check-watches',
-  path: '/api/check-watches',
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiProxyRoute = ApiProxyRouteImport.update({
-  id: '/api/proxy',
-  path: '/api/proxy',
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PremiumRoute = PremiumRouteImport.update({
+  id: '/premium',
+  path: '/premium',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InterestsRoute = InterestsRouteImport.update({
+  id: '/interests',
+  path: '/interests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HighlightRoute = HighlightRouteImport.update({
+  id: '/highlight',
+  path: '/highlight',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AddRoute = AddRouteImport.update({
+  id: '/add',
+  path: '/add',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WatchIdRoute = WatchIdRouteImport.update({
+  id: '/watch/$id',
+  path: '/watch/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSendDigestsRoute = ApiSendDigestsRouteImport.update({
@@ -107,9 +102,14 @@ const ApiSendDigestsRoute = ApiSendDigestsRouteImport.update({
   path: '/api/send-digests',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WatchIdRoute = WatchIdRouteImport.update({
-  id: '/watch/$id',
-  path: '/watch/$id',
+const ApiProxyRoute = ApiProxyRouteImport.update({
+  id: '/api/proxy',
+  path: '/api/proxy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCheckWatchesRoute = ApiCheckWatchesRouteImport.update({
+  id: '/api/check-watches',
+  path: '/api/check-watches',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -253,81 +253,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/add': {
-      id: '/add'
-      path: '/add'
-      fullPath: '/add'
-      preLoaderRoute: typeof AddRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/highlight': {
-      id: '/highlight'
-      path: '/highlight'
-      fullPath: '/highlight'
-      preLoaderRoute: typeof HighlightRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/interests': {
-      id: '/interests'
-      path: '/interests'
-      fullPath: '/interests'
-      preLoaderRoute: typeof InterestsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/premium': {
-      id: '/premium'
-      path: '/premium'
-      fullPath: '/premium'
-      preLoaderRoute: typeof PremiumRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/search': {
-      id: '/search'
-      path: '/search'
-      fullPath: '/search'
-      preLoaderRoute: typeof SearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -337,25 +267,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/welcome': {
-      id: '/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof WelcomeRouteImport
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/check-watches': {
-      id: '/api/check-watches'
-      path: '/api/check-watches'
-      fullPath: '/api/check-watches'
-      preLoaderRoute: typeof ApiCheckWatchesRouteImport
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/proxy': {
-      id: '/api/proxy'
-      path: '/api/proxy'
-      fullPath: '/api/proxy'
-      preLoaderRoute: typeof ApiProxyRouteImport
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/premium': {
+      id: '/premium'
+      path: '/premium'
+      fullPath: '/premium'
+      preLoaderRoute: typeof PremiumRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interests': {
+      id: '/interests'
+      path: '/interests'
+      fullPath: '/interests'
+      preLoaderRoute: typeof InterestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/highlight': {
+      id: '/highlight'
+      path: '/highlight'
+      fullPath: '/highlight'
+      preLoaderRoute: typeof HighlightRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/add': {
+      id: '/add'
+      path: '/add'
+      fullPath: '/add'
+      preLoaderRoute: typeof AddRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/watch/$id': {
+      id: '/watch/$id'
+      path: '/watch/$id'
+      fullPath: '/watch/$id'
+      preLoaderRoute: typeof WatchIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/send-digests': {
@@ -365,11 +358,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSendDigestsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/watch/$id': {
-      id: '/watch/$id'
-      path: '/watch/$id'
-      fullPath: '/watch/$id'
-      preLoaderRoute: typeof WatchIdRouteImport
+    '/api/proxy': {
+      id: '/api/proxy'
+      path: '/api/proxy'
+      fullPath: '/api/proxy'
+      preLoaderRoute: typeof ApiProxyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/check-watches': {
+      id: '/api/check-watches'
+      path: '/api/check-watches'
+      fullPath: '/api/check-watches'
+      preLoaderRoute: typeof ApiCheckWatchesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -397,3 +397,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
