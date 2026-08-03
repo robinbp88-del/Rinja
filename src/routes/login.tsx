@@ -67,7 +67,7 @@ function Login() {
         <div className="flex flex-col items-center text-center">
           <RinjaMascot
             variant={registerMode || pendingConfirm ? "secure" : "hero"}
-            mood={registerMode || pendingConfirm ? "happy" : "curious"}
+            mood={registerMode || pendingConfirm ? "happy" : "neutral"}
             size={128}
             priority
             flat

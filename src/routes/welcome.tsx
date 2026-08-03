@@ -37,7 +37,7 @@ function Welcome() {
       <div className="flex flex-col items-center text-center pt-4">
         <RinjaMascot
           variant="hero"
-          mood="curious"
+          mood="neutral"
           size={168}
           className="mb-8"
           priority

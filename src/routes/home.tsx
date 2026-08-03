@@ -123,9 +123,10 @@ function Home() {
       <header className="flex items-start justify-between px-6 pt-16 screen-safe">
         <RinjaMascot
           variant="guard"
-          mood="curious"
+          mood="neutral"
           size={220}
           priority
+          flat
           className="-ml-2 -mt-2 shrink-0"
         />
 

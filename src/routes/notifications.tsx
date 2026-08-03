@@ -49,6 +49,7 @@ function Notifications() {
           variant={hasAlerts ? "notify" : "relax"}
           mood={hasAlerts ? "alert" : "sleepy"}
           size={180}
+          flat
         />
         <p className="mt-2 text-[14px] font-medium animate-fade-in">
           {hasAlerts

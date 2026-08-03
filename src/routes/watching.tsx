@@ -46,6 +46,7 @@ function WatchingSuccessPage() {
           size={220}
           priority
           flat
+          className="overflow-visible"
         />
         <div
           aria-hidden

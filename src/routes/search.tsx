@@ -115,19 +115,11 @@ function LoadingState() {
   }, []);
   return (
     <div className="mt-16 flex flex-col items-center px-6 text-center">
-      <div aria-hidden className="relative h-6 w-[220px]">
-        <span
-          className="absolute top-1/2 left-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-primary"
-          style={{
-            boxShadow: "0 0 12px 4px oklch(0.58 0.24 295 / 0.65)",
-            animation: "rinja-dot 2.4s ease-in-out infinite",
-          }}
-        />
-      </div>
       <RinjaMascot
         variant="binoculars"
-        mood="curious"
+        mood="neutral"
         size={168}
+        flat
         className="-mt-2"
       />
       <p
@@ -381,7 +373,7 @@ function SearchPage() {
 
       {!loading && !response && !showRecent && (
         <section className="mt-10 flex flex-col items-center px-6 text-center">
-          <RinjaMascot variant="laptop" mood="thinking" size={200} />
+          <RinjaMascot variant="laptop" mood="neutral" size={200} flat />
           <p className="mt-4 text-sm text-muted-foreground">
             Search for ideas, or paste a full page URL on Home to start a watch.
           </p>
