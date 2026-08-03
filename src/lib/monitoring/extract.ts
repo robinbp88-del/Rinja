@@ -30,11 +30,33 @@ export function extractValue(
 
   if (fallbackText?.trim()) {
     const needle = fallbackText.trim().slice(0, 120);
-    const normalizedHtml = html.replace(/\s+/g, " ");
-    if (normalizedHtml.includes(needle)) return needle;
+    if (pageContainsText(html, needle)) return needle;
   }
 
   return null;
+}
+
+/** Stable-ish fingerprint of visible page text for whole-page watches. */
+export function pageFingerprint(html: string): string {
+  const { document } = parseHTML(html);
+  const text = (document.body?.textContent ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 8000);
+
+  let hash = 5381;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash * 33) ^ text.charCodeAt(i);
+  }
+
+  return `h${(hash >>> 0).toString(16)}:${text.length}`;
+}
+
+export function pageContainsText(html: string, needle: string): boolean {
+  const n = needle.replace(/\s+/g, " ").trim();
+  if (!n) return false;
+  const haystack = html.replace(/\s+/g, " ");
+  return haystack.includes(n);
 }
 
 export async function fetchPageHtml(url: string): Promise<string> {

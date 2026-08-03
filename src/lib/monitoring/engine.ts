@@ -1,5 +1,10 @@
 import { changeSummary, valuesEqual } from "./compare";
-import { extractValue, fetchPageHtml } from "./extract";
+import {
+  extractValue,
+  fetchPageHtml,
+  pageContainsText,
+  pageFingerprint,
+} from "./extract";
 import type { WatchFrequency, WatchMode } from "../watch-mode";
 import { createServiceClient } from "../supabase.server";
 
@@ -61,20 +66,36 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     return { watchId: watch.id, status: "skipped", reason: "paused" };
   }
 
-  if (!watch.selector?.trim() && !watch.element_text?.trim()) {
+  const isPageMode = watch.mode === "page";
+  const hasSelector = Boolean(watch.selector?.trim());
+  const hasText = Boolean(watch.element_text?.trim());
+
+  if (!isPageMode && !hasSelector && !hasText) {
     return { watchId: watch.id, status: "skipped", reason: "no selector" };
   }
 
   try {
     const html = await fetchPageHtml(watch.url);
-    const extracted = extractValue(
-      html,
-      watch.selector,
-      watch.element_text,
-    );
-
     const now = new Date().toISOString();
     const supabase = createServiceClient();
+
+    let extracted: string | null = null;
+    let baselineOnly = false;
+
+    if (isPageMode) {
+      extracted = pageFingerprint(html);
+      if (!watch.current_value?.trim()) {
+        baselineOnly = true;
+      }
+    } else if (!hasSelector && hasText) {
+      // Paste-value watch: alert when the text disappears (or was already gone).
+      const needle = watch.element_text!.trim();
+      extracted = pageContainsText(html, needle)
+        ? needle
+        : "Not found on page";
+    } else {
+      extracted = extractValue(html, watch.selector, watch.element_text);
+    }
 
     if (!extracted) {
       const { error: missError } = await supabase
@@ -94,6 +115,25 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
         status: "error",
         message: "Element not found on page",
       };
+    }
+
+    if (baselineOnly) {
+      const { error: baseError } = await supabase
+        .from("watches")
+        .update({
+          current_value: extracted,
+          last_checked: now,
+          updated_at: now,
+        })
+        .eq("id", watch.id);
+      if (baseError) {
+        return {
+          watchId: watch.id,
+          status: "error",
+          message: baseError.message,
+        };
+      }
+      return { watchId: watch.id, status: "unchanged" };
     }
 
     const changed = !valuesEqual(

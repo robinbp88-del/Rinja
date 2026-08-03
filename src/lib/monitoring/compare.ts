@@ -67,6 +67,8 @@ export function valuesEqual(
       return normalizeText(prev) === normalizeText(curr);
     case "text":
       return normalizeText(prev) === normalizeText(curr);
+    case "page":
+      return prev === curr;
     case "any":
     case "custom":
     default:
@@ -79,6 +81,20 @@ export function changeSummary(
   oldValue: string | null,
   newValue: string,
 ): { title: string; body: string } {
+  if (mode === "page") {
+    return {
+      title: "Page changed",
+      body: "Something on the page looks different than before.",
+    };
+  }
+
+  if (newValue === "Not found on page") {
+    return {
+      title: "Value missing",
+      body: `Couldn't find "${oldValue ?? "—"}" on the page anymore.`,
+    };
+  }
+
   const label = mode === "price" ? "Price changed" : "Something changed";
   const body =
     mode === "price"

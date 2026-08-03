@@ -369,11 +369,39 @@ function Highlight() {
       </div>
 
       {!picking && !selection && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md justify-end px-4 pb-5 screen-safe">
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col items-stretch gap-2 px-4 pb-5 screen-safe">
+          <div className="pointer-events-auto rounded-2xl border border-border bg-card/95 px-3 py-2 text-center text-[11px] text-muted-foreground backdrop-blur">
+            Page look blank?{" "}
+            <button
+              type="button"
+              className="font-semibold text-primary"
+              onClick={() =>
+                navigate({
+                  to: "/setup",
+                  search: { url, intent: "paste" },
+                })
+              }
+            >
+              Paste a value
+            </button>
+            {" · "}
+            <button
+              type="button"
+              className="font-semibold text-primary"
+              onClick={() =>
+                navigate({
+                  to: "/setup",
+                  search: { url, intent: "page" },
+                })
+              }
+            >
+              Watch whole page
+            </button>
+          </div>
           <button
             type="button"
             onClick={enablePicking}
-            className="pointer-events-auto flex h-14 items-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-2xl shadow-primary/40 glow-ring transition active:scale-95"
+            className="pointer-events-auto flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-2xl shadow-primary/40 glow-ring transition active:scale-95"
           >
             <MousePointerClick
               className="h-5 w-5"

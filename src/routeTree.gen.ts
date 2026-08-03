@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PremiumRouteImport } from './routes/premium'
@@ -27,6 +28,11 @@ import { Route as ApiCheckWatchesRouteImport } from './routes/api/check-watches'
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SearchRoute = SearchRouteImport.update({
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
+  '/setup': typeof SetupRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
+  '/setup': typeof SetupRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
+  '/setup': typeof SetupRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/premium'
     | '/profile'
     | '/search'
+    | '/setup'
     | '/welcome'
     | '/api/check-watches'
     | '/api/proxy'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/premium'
     | '/profile'
     | '/search'
+    | '/setup'
     | '/welcome'
     | '/api/check-watches'
     | '/api/proxy'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/premium'
     | '/profile'
     | '/search'
+    | '/setup'
     | '/welcome'
     | '/api/check-watches'
     | '/api/proxy'
@@ -206,6 +218,7 @@ export interface RootRouteChildren {
   PremiumRoute: typeof PremiumRoute
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
+  SetupRoute: typeof SetupRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiCheckWatchesRoute: typeof ApiCheckWatchesRoute
   ApiProxyRoute: typeof ApiProxyRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/search': {
@@ -326,6 +346,7 @@ const rootRouteChildren: RootRouteChildren = {
   PremiumRoute: PremiumRoute,
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
+  SetupRoute: SetupRoute,
   WelcomeRoute: WelcomeRoute,
   ApiCheckWatchesRoute: ApiCheckWatchesRoute,
   ApiProxyRoute: ApiProxyRoute,
