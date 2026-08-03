@@ -30,6 +30,7 @@ import {
   setWatchLabel,
   setWatchNotify,
   setWatchPaused,
+  watchBadgeLabel,
   watchHealthMessage,
   watchNextCheckLabel,
   watchStatusLine,
@@ -227,6 +228,7 @@ function WatchDetail() {
   const healthMessage = watchHealthMessage(watch);
   const nextCheck = watchNextCheckLabel(watch);
   const statusLine = watchStatusLine(watch);
+  const badge = watchBadgeLabel(watch);
 
   const alertsOn = watch.notify !== false;
 
@@ -360,14 +362,18 @@ function WatchDetail() {
 
         <span
           className={`rounded-full px-3 py-1 text-[10px] uppercase tracking-widest ${
-            watch.paused
+            badge === "Paused"
               ? "bg-muted text-muted-foreground"
-              : healthMessage
+              : badge === "Issue"
                 ? "bg-destructive/15 text-destructive"
-                : "bg-primary/15 text-primary"
+                : badge === "Changed"
+                  ? "bg-primary/20 text-primary"
+                  : badge === "Pending"
+                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    : "bg-primary/15 text-primary"
           }`}
         >
-          {watch.paused ? "Paused" : healthMessage ? "Issue" : "Live"}
+          {badge}
         </span>
       </header>
 

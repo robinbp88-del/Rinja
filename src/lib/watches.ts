@@ -115,6 +115,41 @@ export async function getWatches(): Promise<DatabaseWatch[]> {
   return (data ?? []) as DatabaseWatch[];
 }
 
+function isPageWatchRow(watch: DatabaseWatch): boolean {
+  return watch.mode === "page" || watch.element_tag === "page";
+}
+
+function isPasteWatchRow(watch: DatabaseWatch): boolean {
+  return !watch.selector?.trim() && Boolean(watch.element_text?.trim());
+}
+
+/** Badge label for watch detail (honest — not always “Live”). */
+export function watchBadgeLabel(watch: DatabaseWatch): string {
+  if (watch.paused) return "Paused";
+
+  const status = watch.check_status ?? null;
+  if (
+    status === "error" ||
+    status === "blocked" ||
+    status === "unsupported"
+  ) {
+    return "Issue";
+  }
+
+  if (
+    watch.baseline_pending ||
+    (isPageWatchRow(watch) && !watch.current_value?.trim()) ||
+    status === "pending" ||
+    !watch.last_checked
+  ) {
+    return "Pending";
+  }
+
+  if (status === "changed") return "Changed";
+
+  return "Watching";
+}
+
 /** Short status line for home / lists. */
 export function watchStatusLine(watch: DatabaseWatch): string {
   if (watch.paused) return "Paused";
@@ -126,33 +161,36 @@ export function watchStatusLine(watch: DatabaseWatch): string {
     status === "unsupported"
   ) {
     const code = (watch.last_error_code ?? "unknown") as MonitorErrorCode;
-    return userFacingError(code, watch.last_error ?? "Check failed");
+    const base = userFacingError(code, watch.last_error ?? "Check failed");
+    const fails = watch.consecutive_failures ?? 0;
+    return fails > 1 ? `${base} (${fails} fails)` : base;
   }
 
   if (
     watch.baseline_pending ||
-    ((watch.mode === "page" || watch.element_tag === "page") &&
-      !watch.current_value?.trim())
+    (isPageWatchRow(watch) && !watch.current_value?.trim())
   ) {
     return "Baseline pending — first check soon";
   }
 
-  const isPage =
-    watch.mode === "page" || watch.element_tag === "page";
-  if (isPage) {
-    return status === "changed"
-      ? "Page changed"
-      : "Watching whole page";
+  if (isPageWatchRow(watch)) {
+    return status === "changed" ? "Page changed" : "Watching whole page";
   }
 
-  const isPaste =
-    !watch.selector?.trim() && Boolean(watch.element_text?.trim());
-  if (isPaste) {
+  if (isPasteWatchRow(watch)) {
     if (watch.current_value === "Not found on page") {
-      return "Text missing on page";
+      return status === "changed"
+        ? "Changed — text missing on page"
+        : "Text missing on page";
     }
     const snippet = watch.element_text!.trim().slice(0, 36);
-    return `Watching “${snippet}${watch.element_text!.trim().length > 36 ? "…" : ""}”`;
+    const watching = `Watching “${snippet}${watch.element_text!.trim().length > 36 ? "…" : ""}”`;
+    return status === "changed" ? `Changed — ${watching}` : watching;
+  }
+
+  if (status === "changed") {
+    const value = watch.current_value?.trim();
+    return value ? `Changed — ${value}` : "Changed";
   }
 
   return watch.current_value?.trim() || "Watching";

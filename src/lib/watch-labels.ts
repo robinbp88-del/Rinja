@@ -8,7 +8,10 @@ export function watchConditionLabel(watch: DatabaseWatch): string {
 
   const isPaste =
     !watch.selector?.trim() && Boolean(watch.element_text?.trim());
-  if (isPaste || watch.mode === "text") {
+  if (isPaste) {
+    return "If this text leaves the page";
+  }
+  if (watch.mode === "text") {
     return "When the text changes";
   }
 

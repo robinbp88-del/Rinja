@@ -90,8 +90,15 @@ export function changeSummary(
 
   if (newValue === "Not found on page") {
     return {
-      title: "Value missing",
+      title: "Text missing",
       body: `Couldn't find "${oldValue ?? "—"}" on the page anymore.`,
+    };
+  }
+
+  if (oldValue === "Not found on page") {
+    return {
+      title: "Text is back",
+      body: `"${newValue}" is on the page again.`,
     };
   }
 

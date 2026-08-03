@@ -121,8 +121,8 @@ function AddWatch() {
       <div className="mt-3 space-y-2">
         <OptionCard
           icon={<Type className="h-5 w-5" />}
-          title="When the text changes"
-          description="Paste the price or text you care about"
+          title="If this text leaves the page"
+          description="Paste a price, “in stock”, or other text to watch"
           onClick={goPaste}
           disabled={!isValid}
           primary

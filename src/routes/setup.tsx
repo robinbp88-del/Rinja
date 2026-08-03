@@ -175,12 +175,12 @@ function SetupWatch() {
       ) : (
         <>
           <h1 className="text-[28px] font-semibold tracking-tight">
-            When the text changes
+            If this text leaves the page
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Open the real site in your browser, copy the price or text you care
-            about, and paste it here. I&apos;ll alert you if it disappears or
-            changes.
+            Open the real site in your browser, copy the exact text you care
+            about, and paste it here. I&apos;ll alert you if it disappears from
+            the page (or comes back).
           </p>
 
           <label className="mt-8 block">

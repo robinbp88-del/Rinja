@@ -5,6 +5,23 @@ import {
 } from "../outbound-url";
 import { MonitorError } from "./errors";
 
+/** Strip noisy nodes, then return collapsed body text used for monitoring. */
+export function visiblePageText(html: string): string {
+  const { document } = parseHTML(html);
+  const root = document.documentElement ?? document.body;
+  if (!root) return "";
+
+  for (const el of root.querySelectorAll(
+    "script, style, noscript, template, svg, iframe",
+  )) {
+    el.remove();
+  }
+
+  return (document.body?.textContent ?? root.textContent ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function extractValue(
   html: string,
   selector: string | null,
@@ -25,8 +42,11 @@ export function extractValue(
         if (img?.src) return img.src;
       }
     } catch {
-      // Invalid selector — fall through to text search.
+      // Invalid selector — treat as missing (don't fake a match elsewhere).
     }
+    // Selector was set but didn't resolve to a value. Falling back to "text
+    // exists somewhere" caused silent false-unchanged; fail instead.
+    return null;
   }
 
   if (fallbackText?.trim()) {
@@ -39,11 +59,7 @@ export function extractValue(
 
 /** Stable-ish fingerprint of visible page text for whole-page watches. */
 export function pageFingerprint(html: string): string {
-  const { document } = parseHTML(html);
-  const text = (document.body?.textContent ?? "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 8000);
+  const text = visiblePageText(html).slice(0, 8000);
 
   let hash = 5381;
   for (let i = 0; i < text.length; i++) {
@@ -53,10 +69,11 @@ export function pageFingerprint(html: string): string {
   return `h${(hash >>> 0).toString(16)}:${text.length}`;
 }
 
+/** Case-insensitive match against visible page text (not raw HTML/attrs). */
 export function pageContainsText(html: string, needle: string): boolean {
-  const n = needle.replace(/\s+/g, " ").trim();
+  const n = needle.replace(/\s+/g, " ").trim().toLowerCase();
   if (!n) return false;
-  const haystack = html.replace(/\s+/g, " ");
+  const haystack = visiblePageText(html).toLowerCase();
   return haystack.includes(n);
 }
 
@@ -67,8 +84,7 @@ export function scoreFetchedHtml(
   const trimmed = html.replace(/\s+/g, " ").trim();
   if (trimmed.length < 40) return "empty_html";
 
-  const { document } = parseHTML(html);
-  const text = (document.body?.textContent ?? "").replace(/\s+/g, " ").trim();
+  const text = visiblePageText(html);
   const scripts = (html.match(/<script\b/gi) ?? []).length;
 
   if (text.length < 80 && scripts >= 3) return "js_shell";
