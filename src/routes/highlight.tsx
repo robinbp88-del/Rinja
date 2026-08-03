@@ -69,6 +69,8 @@ function Highlight() {
   const [pageTitle, setPageTitle] = useState("");
   const [selection, setSelection] = useState<PickerSelection | null>(null);
   const [picking, setPicking] = useState(false);
+  const pickingRef = useRef(false);
+  pickingRef.current = picking;
   const [mode, setMode] = useState<WatchMode>("any");
   const [notify, setNotify] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -118,6 +120,11 @@ function Highlight() {
 
         if (message.payload?.title) {
           setPageTitle(message.payload.title);
+        }
+
+        // Highlight may have been pressed before the picker finished loading.
+        if (pickingRef.current) {
+          postToPicker(iframeRef.current?.contentWindow, "enable");
         }
 
         return;

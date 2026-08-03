@@ -7,6 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Pause,
@@ -19,12 +20,14 @@ import {
   ExternalLink,
   Bell,
   BellOff,
+  Pencil,
   type LucideIcon,
 } from "lucide-react";
 
 import {
   deleteWatch,
   getWatchById,
+  setWatchLabel,
   setWatchNotify,
   setWatchPaused,
   watchHealthMessage,
@@ -55,6 +58,15 @@ function WatchDetail() {
     queryKey: ["watch", id],
     queryFn: () => getWatchById(id),
   });
+
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+
+  useEffect(() => {
+    if (watchQuery.data?.label) {
+      setNameDraft(watchQuery.data.label);
+    }
+  }, [watchQuery.data?.label]);
 
   const pauseMutation = useMutation({
     mutationFn: ({
@@ -95,6 +107,23 @@ function WatchDetail() {
       await queryClient.invalidateQueries({
         queryKey: ["watches"],
       });
+    },
+  });
+
+  const labelMutation = useMutation({
+    mutationFn: ({
+      watchId,
+      label,
+    }: {
+      watchId: string;
+      label: string;
+    }) => setWatchLabel(watchId, label),
+
+    onSuccess: async (updatedWatch) => {
+      queryClient.setQueryData(["watch", updatedWatch.id], updatedWatch);
+      await queryClient.invalidateQueries({ queryKey: ["watches"] });
+      setEditingName(false);
+      setNameDraft(updatedWatch.label);
     },
   });
 
@@ -219,6 +248,22 @@ function WatchDetail() {
     });
   };
 
+  const startEditName = () => {
+    setNameDraft(watch.label);
+    setEditingName(true);
+  };
+
+  const saveName = () => {
+    if (labelMutation.isPending) return;
+    const next = nameDraft.replace(/\s+/g, " ").trim();
+    if (!next || next === watch.label) {
+      setEditingName(false);
+      setNameDraft(watch.label);
+      return;
+    }
+    labelMutation.mutate({ watchId: watch.id, label: next });
+  };
+
   const handleDelete = () => {
     if (deleteMutation.isPending) return;
 
@@ -265,9 +310,52 @@ function WatchDetail() {
             {watch.host ?? "Website"}
           </p>
 
-          <p className="truncate text-sm font-medium">
-            {watch.label}
-          </p>
+          {editingName ? (
+            <form
+              className="mt-0.5 flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveName();
+              }}
+            >
+              <input
+                autoFocus
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={80}
+                aria-label="Watch name"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-1 text-sm font-medium outline-none focus:border-primary/50"
+              />
+              <button
+                type="submit"
+                disabled={labelMutation.isPending}
+                className="shrink-0 text-xs font-semibold text-primary disabled:opacity-50"
+              >
+                {labelMutation.isPending ? "…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingName(false);
+                  setNameDraft(watch.label);
+                }}
+                className="shrink-0 text-xs text-muted-foreground"
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={startEditName}
+              className="flex max-w-full items-center gap-1.5 text-left"
+            >
+              <span className="truncate text-sm font-medium">
+                {watch.label}
+              </span>
+              <Pencil className="h-3 w-3 shrink-0 text-muted-foreground" />
+            </button>
+          )}
         </div>
 
         <span
@@ -387,10 +475,15 @@ function WatchDetail() {
 
       {(pauseMutation.isError ||
         deleteMutation.isError ||
-        notifyMutation.isError) && (
+        notifyMutation.isError ||
+        labelMutation.isError) && (
         <section className="mt-5 px-6">
           <p className="text-center text-sm text-destructive">
-            Something went wrong. Please try again.
+            {labelMutation.isError
+              ? labelMutation.error instanceof Error
+                ? labelMutation.error.message
+                : "Couldn’t rename watch."
+              : "Something went wrong. Please try again."}
           </p>
         </section>
       )}

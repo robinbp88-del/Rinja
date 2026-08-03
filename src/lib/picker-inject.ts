@@ -28,53 +28,34 @@ export function pickerScript() {
     }
   };
 
-  document.addEventListener(
-    "click",
-    (e) => {
-      const t = e.target as Element | null;
-      if (!t) return;
-      if (picking) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-      const a = (t.closest && t.closest("a")) as HTMLAnchorElement | null;
-      if (!a || !a.href) return;
-      const p = proxied(a.getAttribute("href") || a.href);
-      if (!p) return;
-      e.preventDefault();
-      e.stopPropagation();
-      location.href = p;
-    },
-    true,
-  );
-
-  document.addEventListener(
-    "submit",
-    (e) => {
-      if (picking) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    },
-    true,
-  );
-
-  const overlay = document.createElement("div");
-  overlay.style.cssText =
-    "position:fixed;pointer-events:none;z-index:2147483646;border:2px solid #4c9dff;background:rgba(76,157,255,.12);border-radius:6px;transition:all .06s ease;box-shadow:0 0 0 3px rgba(76,157,255,.25),0 0 24px rgba(76,157,255,.55);display:none";
-  const label = document.createElement("div");
-  label.style.cssText =
-    "position:fixed;z-index:2147483647;background:#0b0d12;color:#fff;font:600 11px/1 -apple-system,system-ui,sans-serif;padding:6px 8px;border-radius:6px;pointer-events:none;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4)";
-  const install = () => {
-    if (!document.body) return;
-    document.body.appendChild(overlay);
-    document.body.appendChild(label);
-  };
-  if (document.body) install();
-  else document.addEventListener("DOMContentLoaded", install);
-
   let selected: Element | null = null;
+  let overlay: HTMLDivElement | null = null;
+  let label: HTMLDivElement | null = null;
+
+  const ensureChrome = () => {
+    if (!document.body) return;
+    if (!overlay || !overlay.isConnected) {
+      overlay = document.createElement("div");
+      overlay.style.cssText =
+        "position:fixed;pointer-events:none;z-index:2147483646;border:2px solid #4c9dff;background:rgba(76,157,255,.12);border-radius:6px;transition:all .06s ease;box-shadow:0 0 0 3px rgba(76,157,255,.25),0 0 24px rgba(76,157,255,.55);display:none";
+      document.body.appendChild(overlay);
+    }
+    if (!label || !label.isConnected) {
+      label = document.createElement("div");
+      label.style.cssText =
+        "position:fixed;z-index:2147483647;background:#0b0d12;color:#fff;font:600 11px/1 -apple-system,system-ui,sans-serif;padding:6px 8px;border-radius:6px;pointer-events:none;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4)";
+      document.body.appendChild(label);
+    }
+  };
+
+  if (document.body) ensureChrome();
+  else document.addEventListener("DOMContentLoaded", ensureChrome);
+
+  // Sites often replace <body> after hydration — reattach picker chrome.
+  const mo = new MutationObserver(() => {
+    if (overlay && !overlay.isConnected) ensureChrome();
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
 
   const cssPath = (el: Element): string => {
     if (!(el instanceof Element)) return "";
@@ -110,7 +91,20 @@ export function pickerScript() {
     return t.length > n ? t.slice(0, n - 1) + "…" : t;
   };
 
+  const pick = (el: Element) => {
+    selected = el;
+    paint(el, "selected");
+    send("selected", {
+      selector: cssPath(el),
+      tag: el.tagName.toLowerCase(),
+      text: trim((el as HTMLElement).innerText || el.textContent || ""),
+      html: trim(el.outerHTML || "", 400),
+    });
+  };
+
   const paint = (el: Element | null, kind: "hover" | "selected") => {
+    ensureChrome();
+    if (!overlay || !label) return;
     if (!el || !document.body) {
       overlay.style.display = "none";
       label.style.display = "none";
@@ -139,6 +133,43 @@ export function pickerScript() {
     !!el && (el === overlay || el === label);
 
   document.addEventListener(
+    "click",
+    (e) => {
+      const t = e.target as Element | null;
+      if (!t) return;
+
+      // Picking takes priority — select the element in this same handler.
+      if (picking) {
+        if (isOurs(t)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        pick(t);
+        return;
+      }
+
+      const a = (t.closest && t.closest("a")) as HTMLAnchorElement | null;
+      if (!a || !a.href) return;
+      const p = proxied(a.getAttribute("href") || a.href);
+      if (!p) return;
+      e.preventDefault();
+      e.stopPropagation();
+      location.href = p;
+    },
+    true,
+  );
+
+  document.addEventListener(
+    "submit",
+    (e) => {
+      if (picking) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener(
     "mouseover",
     (e) => {
       if (!picking) return;
@@ -159,26 +190,6 @@ export function pickerScript() {
     true,
   );
 
-  const pick = (el: Element) => {
-    selected = el;
-    paint(el, "selected");
-    send("selected", {
-      selector: cssPath(el),
-      tag: el.tagName.toLowerCase(),
-      text: trim((el as HTMLElement).innerText || el.textContent || ""),
-      html: trim(el.outerHTML || "", 400),
-    });
-  };
-
-  const onPick = (e: Event) => {
-    if (!picking) return;
-    const t = e.target as Element | null;
-    if (!t || isOurs(t)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    pick(t);
-  };
-  document.addEventListener("click", onPick, true);
   document.addEventListener(
     "touchend",
     (e) => {
@@ -222,6 +233,7 @@ export function pickerScript() {
     if (!d || d.source !== "watchpage-host") return;
     if (d.type === "enable") {
       picking = true;
+      ensureChrome();
     } else if (d.type === "disable") {
       picking = false;
       selected = null;

@@ -250,6 +250,30 @@ export async function updateWatchSelection(
   return data as DatabaseWatch;
 }
 
+export async function setWatchLabel(
+  id: string,
+  label: string,
+): Promise<DatabaseWatch> {
+  const user = await requireUser();
+  const trimmed = label.replace(/\s+/g, " ").trim();
+  if (!trimmed) throw new Error("Name can’t be empty");
+
+  const { data, error } = await supabase
+    .from("watches")
+    .update({
+      label: trimmed.slice(0, 80),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  return data as DatabaseWatch;
+}
+
 export async function setWatchNotify(
   id: string,
   notify: boolean,

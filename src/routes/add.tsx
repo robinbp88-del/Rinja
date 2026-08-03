@@ -113,8 +113,8 @@ function AddWatch() {
           Watch whole page
         </button>
         <p className="pt-1 text-center text-[11px] text-muted-foreground">
-          Big shops like Nike often look blank in preview — use paste or whole
-          page instead.
+          Highlight needs a working preview. If nothing is selectable, use
+          paste or whole page instead.
         </p>
       </div>
     </div>
