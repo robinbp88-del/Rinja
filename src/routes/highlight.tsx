@@ -231,6 +231,8 @@ function Highlight() {
     const value = selection.text || selection.html.slice(0, 80);
 
     try {
+      let createdId = watchId ?? "";
+
       if (watchId) {
         await updateWatchSelection(watchId, {
           label,
@@ -257,6 +259,7 @@ function Highlight() {
           frequency: "15m",
           notify,
         });
+        createdId = created.id;
 
         if (notify) {
           await createStartedNotification({
@@ -285,7 +288,10 @@ function Highlight() {
             params: { id: watchId },
           });
         } else {
-          navigate({ to: "/home" });
+          navigate({
+            to: "/watching",
+            search: { id: createdId },
+          });
         }
       }, 850);
     } catch (error) {

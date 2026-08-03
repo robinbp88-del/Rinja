@@ -11,6 +11,7 @@ import {
 
 import { BottomNav } from "../components/BottomNav";
 import { RinjaMascot } from "../components/RinjaMascot";
+import { watchConditionLabel } from "../lib/watch-labels";
 import { getWatches, watchStatusLine } from "../lib/watches";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
@@ -169,7 +170,7 @@ function Home() {
       <section className="mt-14 px-6">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-[17px] font-semibold tracking-tight">
-            Watching for you
+            My watches
             {watches.length > 0 ? (
               <span className="ml-2 text-[13px] font-medium text-muted-foreground">
                 {watches.length}
@@ -265,21 +266,26 @@ function Home() {
                     {watch.label}
                   </p>
 
+                  <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                    {watch.host ?? "webpage"} · {watchConditionLabel(watch)}
+                  </p>
+
                   <p
                     className={`mt-0.5 truncate text-[12px] ${
                       watch.check_status === "error" ||
                       watch.check_status === "blocked" ||
                       watch.check_status === "unsupported"
                         ? "text-destructive"
-                        : "text-muted-foreground"
+                        : watch.check_status === "changed"
+                          ? "text-primary"
+                          : "text-muted-foreground"
                     }`}
                   >
                     {watchStatusLine(watch)}
-                  </p>
-
-                  <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                    Checked{" "}
-                    {timeAgo(watch.last_checked ?? watch.created_at)}
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {timeAgo(watch.last_checked ?? watch.created_at)}
+                    </span>
                   </p>
                 </div>
 

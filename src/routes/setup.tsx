@@ -72,7 +72,7 @@ function SetupWatch() {
         console.warn("Watch created, notification failed:", notifyErr);
       }
 
-      navigate({ to: "/home" });
+      navigate({ to: "/watching", search: { id: created.id } });
     } catch (err: unknown) {
       setError(errorMessage(err));
     } finally {
@@ -116,7 +116,7 @@ function SetupWatch() {
         console.warn("Watch created, notification failed:", notifyErr);
       }
 
-      navigate({ to: "/home" });
+      navigate({ to: "/watching", search: { id: created.id } });
     } catch (err: unknown) {
       setError(errorMessage(err));
     } finally {
@@ -138,10 +138,10 @@ function SetupWatch() {
       {intent === "page" ? (
         <>
           <h1 className="text-[28px] font-semibold tracking-tight">
-            Watch whole page
+            Any change on the page
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            I’ll check {host} regularly and alert you if the page content
+            I&apos;ll check {host} regularly and alert you if the page content
             changes — no highlight needed. Works even when preview looks blank.
           </p>
 
@@ -167,7 +167,7 @@ function SetupWatch() {
                   Starting…
                 </>
               ) : (
-                "Start watching page"
+                "Start watching"
               )}
             </button>
           </div>
@@ -175,23 +175,23 @@ function SetupWatch() {
       ) : (
         <>
           <h1 className="text-[28px] font-semibold tracking-tight">
-            Paste what to watch
+            When the text changes
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Open the real site in your browser, copy the price or text you care
-            about, and paste it here. I’ll alert you if it disappears or
+            about, and paste it here. I&apos;ll alert you if it disappears or
             changes.
           </p>
 
           <label className="mt-8 block">
             <span className="mb-1.5 block px-1 text-[11px] uppercase tracking-widest text-muted-foreground">
-              Text or price
+              Text to watch
             </span>
             <textarea
               value={value}
               onChange={(e) => setValue(e.target.value)}
               rows={4}
-              placeholder="e.g. 1 299 kr"
+              placeholder="e.g. In stock, 1,299, Sold out…"
               className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[15px] outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
             />
           </label>

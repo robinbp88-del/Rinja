@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as WatchingRouteImport } from './routes/watching'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
@@ -30,6 +31,11 @@ import { Route as ApiCheckWatchesRouteImport } from './routes/api/check-watches'
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
   path: '/welcome',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WatchingRoute = WatchingRouteImport.update({
+  id: '/watching',
+  path: '/watching',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
+  '/watching': typeof WatchingRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
+  '/watching': typeof WatchingRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
+  '/watching': typeof WatchingRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
   '/api/proxy': typeof ApiProxyRoute
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/setup'
+    | '/watching'
     | '/welcome'
     | '/api/check-watches'
     | '/api/proxy'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/setup'
+    | '/watching'
     | '/welcome'
     | '/api/check-watches'
     | '/api/proxy'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/setup'
+    | '/watching'
     | '/welcome'
     | '/api/check-watches'
     | '/api/proxy'
@@ -244,6 +256,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SetupRoute: typeof SetupRoute
+  WatchingRoute: typeof WatchingRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiCheckWatchesRoute: typeof ApiCheckWatchesRoute
   ApiProxyRoute: typeof ApiProxyRoute
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/watching': {
+      id: '/watching'
+      path: '/watching'
+      fullPath: '/watching'
+      preLoaderRoute: typeof WatchingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -388,6 +408,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SetupRoute: SetupRoute,
+  WatchingRoute: WatchingRoute,
   WelcomeRoute: WelcomeRoute,
   ApiCheckWatchesRoute: ApiCheckWatchesRoute,
   ApiProxyRoute: ApiProxyRoute,
