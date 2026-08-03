@@ -486,3 +486,86 @@ async function runDueWatchChecksFallback(
     results,
   };
 }
+
+export type MonitorRunSummary = {
+  checked: number;
+  changed: number;
+  errors: number;
+  skipped: number;
+  baselines: number;
+  results: CheckResult[];
+};
+
+/** User-scoped due checks — used while the app is open (no cron secret). */
+export async function runDueWatchChecksForUser(
+  userId: string,
+  limit = 10,
+  options?: { force?: boolean },
+): Promise<MonitorRunSummary> {
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from("watches")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("paused", false)
+    .order("last_checked", { ascending: true, nullsFirst: true })
+    .limit(50);
+
+  if (error) throw error;
+
+  const watches = (data ?? []) as WatchRow[];
+  const due = watches
+    .filter((w) =>
+      options?.force
+        ? true
+        : isWatchDue(w.last_checked, w.created_at, w.frequency),
+    )
+    .slice(0, limit);
+
+  const results: CheckResult[] = [];
+  for (const watch of due) {
+    results.push(await checkWatch(watch));
+  }
+
+  return {
+    checked: due.length,
+    changed: results.filter((r) => r.status === "changed").length,
+    errors: results.filter((r) => r.status === "error").length,
+    skipped: results.filter((r) => r.status === "skipped").length,
+    baselines: results.filter((r) => r.status === "baseline").length,
+    results,
+  };
+}
+
+/** Force-check one of the user's watches (e.g. when opening detail). */
+export async function checkWatchForUser(
+  userId: string,
+  watchId: string,
+): Promise<CheckResult> {
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from("watches")
+    .select("*")
+    .eq("id", watchId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) {
+    return {
+      watchId,
+      status: "error",
+      code: "unknown",
+      message: "Watch not found",
+    };
+  }
+
+  const watch = data as WatchRow;
+  if (watch.paused) {
+    return { watchId, status: "skipped", reason: "paused" };
+  }
+
+  return checkWatch(watch);
+}

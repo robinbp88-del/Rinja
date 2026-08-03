@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUp,
@@ -20,9 +20,11 @@ import {
   watchStatusLine,
   type DatabaseWatch,
 } from "../lib/watches";
+import { checkMyDueWatches } from "../lib/monitoring/check.functions";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
+import { supabase } from "../lib/supabase";
 import { normalizeWatchUrl } from "../lib/url-input";
 import binoculars from "../assets/binoculars.png";
 
@@ -75,7 +77,41 @@ function Home() {
     queryKey: ["watches", authUser?.id],
     queryFn: getWatches,
     enabled: Boolean(authUser),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
   });
+
+  // While Home is open, run due checks so last_checked advances without cron.
+  useEffect(() => {
+    if (!authUser) return;
+
+    let cancelled = false;
+
+    const runDueChecks = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token || cancelled) return;
+
+      try {
+        await checkMyDueWatches({ data: { accessToken: token } });
+        if (cancelled) return;
+        await queryClient.invalidateQueries({ queryKey: ["watches"] });
+        await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      } catch (error) {
+        console.warn("Background watch check failed:", error);
+      }
+    };
+
+    void runDueChecks();
+    const timer = window.setInterval(runDueChecks, 3 * 60 * 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [authUser, queryClient]);
 
   const deleteMutation = useMutation({
     mutationFn: (watchId: string) => deleteWatch(watchId),

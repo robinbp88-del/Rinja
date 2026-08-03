@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { checkMyWatchNow } from "../lib/monitoring/check.functions";
 import {
   deleteWatch,
   getWatchById,
@@ -37,6 +38,7 @@ import {
   watchStatusLine,
 } from "../lib/watches";
 import { requireAuth } from "../lib/requireAuth";
+import { supabase } from "../lib/supabase";
 
 export const Route = createFileRoute("/watch/$id")({
   beforeLoad: requireAuth,
@@ -70,6 +72,36 @@ function WatchDetail() {
       setNameDraft(watchQuery.data.label);
     }
   }, [watchQuery.data?.label]);
+
+  // Opening a watch force-checks it so status/value refresh immediately.
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) return;
+
+      try {
+        await checkMyWatchNow({
+          data: { accessToken: token, watchId: id },
+        });
+        if (cancelled) return;
+        await queryClient.invalidateQueries({ queryKey: ["watch", id] });
+        await queryClient.invalidateQueries({ queryKey: ["watches"] });
+        await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      } catch (error) {
+        console.warn("Watch detail check failed:", error);
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, queryClient]);
 
   const pauseMutation = useMutation({
     mutationFn: ({
