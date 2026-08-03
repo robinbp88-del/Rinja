@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { Apple, Mail } from "lucide-react";
 
 import { RinjaMascot } from "../components/RinjaMascot";
+import { useAuth } from "../providers/AuthProvider";
 
 export const Route = createFileRoute("/welcome")({
   component: Welcome,
@@ -9,6 +11,13 @@ export const Route = createFileRoute("/welcome")({
 
 function Welcome() {
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      void navigate({ to: "/home", replace: true });
+    }
+  }, [loading, user, navigate]);
 
   const goLogin = () => {
     navigate({ to: "/login" });

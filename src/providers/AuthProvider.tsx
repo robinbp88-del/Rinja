@@ -28,16 +28,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    supabase.auth
-      .getUser()
-      .then(({ data, error: authError }) => {
+    // Restore from persisted session first (stays signed in after app close).
+    void supabase.auth
+      .getSession()
+      .then(({ data, error: sessionError }) => {
         if (cancelled) return;
-        if (authError) {
-          setError(authError.message);
+        if (sessionError) {
+          setError(sessionError.message);
           setUser(null);
         } else {
           setError(null);
-          setUser(data.user ?? null);
+          setUser(data.session?.user ?? null);
         }
       })
       .catch((err: unknown) => {
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setError(null);
+      setLoading(false);
     });
 
     return () => {
