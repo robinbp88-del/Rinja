@@ -1,7 +1,13 @@
 import type { WatchMode } from "../watch-mode";
 
+/** Collapse cosmetic whitespace so "Vaser (146)" == "Vaser(146)". */
 function normalizeText(value: string | null | undefined): string {
-  return (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  return (value ?? "")
+    .toLowerCase()
+    // Drop spaces hugging punctuation / brackets (common DOM churn).
+    .replace(/\s*([()[\]{}<>«»"'`.,;:!?/\\|+=*_#-])\s*/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function extractPriceNumber(value: string | null | undefined): string | null {
