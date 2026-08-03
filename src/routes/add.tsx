@@ -86,13 +86,13 @@ function AddWatch() {
       </div>
 
       <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-        Step 1 of 2
+        New watch
       </p>
       <h1 className="mt-2 text-[28px] font-semibold tracking-tight">
         Paste the page URL
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Use the full product or listing link — not just the site home page.
+        Then highlight what matters in the in-app preview.
       </p>
 
       <div className="mt-6 flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">
@@ -103,7 +103,7 @@ function AddWatch() {
           onKeyDown={(e) => {
             if (e.key === "Enter" && isValid) {
               e.preventDefault();
-              goPaste();
+              goHighlight();
             }
           }}
           placeholder="https://…"
@@ -143,12 +143,12 @@ function AddWatch() {
       <div className="mt-auto flex flex-col gap-2 pb-8 pt-8">
         <button
           type="button"
-          onClick={goPaste}
+          onClick={goHighlight}
           disabled={!isValid}
           className="flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition active:scale-[0.98] disabled:opacity-40"
         >
-          <Type className="h-4 w-4" />
-          Continue — paste text to watch
+          <MousePointerClick className="h-4 w-4" />
+          Highlight on page
         </button>
 
         <button
@@ -156,7 +156,7 @@ function AddWatch() {
           onClick={() => setShowMore((v) => !v)}
           className="flex items-center justify-center gap-1 py-2 text-[12px] font-medium text-muted-foreground"
         >
-          More options
+          Other ways
           <ChevronDown
             className={`h-3.5 w-3.5 transition ${showMore ? "rotate-180" : ""}`}
           />
@@ -165,17 +165,17 @@ function AddWatch() {
         {showMore ? (
           <div className="space-y-2">
             <OptionCard
+              icon={<Type className="h-5 w-5" />}
+              title="Paste text to watch"
+              description="If preview won’t load — copy text from your browser"
+              onClick={goPaste}
+              disabled={!isValid}
+            />
+            <OptionCard
               icon={<FileText className="h-5 w-5" />}
               title="Any change on the page"
               description="Alert me if the page content changes"
               onClick={goPage}
-              disabled={!isValid}
-            />
-            <OptionCard
-              icon={<MousePointerClick className="h-5 w-5" />}
-              title="Pick text on the page"
-              description="Highlight in preview when the site allows it"
-              onClick={goHighlight}
               disabled={!isValid}
             />
           </div>

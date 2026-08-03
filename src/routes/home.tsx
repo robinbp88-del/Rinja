@@ -102,10 +102,10 @@ function Home() {
 
     const url = normalizeWatchUrl(value);
     if (url) {
-      // Happy path: URL → paste text setup (skip the chooser).
+      // Happy path: open in-app highlight preview.
       navigate({
-        to: "/setup",
-        search: { url, intent: "paste" },
+        to: "/highlight",
+        search: { url } as never,
       });
       return;
     }
@@ -143,7 +143,7 @@ function Home() {
           What should I keep an eye on?
         </h1>
         <p className="mt-3 text-[14px] leading-snug text-muted-foreground">
-          1) Paste a page URL · 2) Paste the text · 3) I&apos;ll alert you
+          1) Paste a page URL · 2) Highlight what matters · 3) I&apos;ll alert you
         </p>
       </section>
 
@@ -264,8 +264,8 @@ function Home() {
             <p className="mt-4 text-[15px] font-medium">Nothing on my list yet.</p>
 
             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-              Paste a full page URL above, then paste the exact text you care
-              about — I&apos;ll watch for when it leaves the page.
+              Paste a full page URL above, then tap the text you care about in
+              the preview — or use paste if the site won&apos;t load.
             </p>
 
             <button
