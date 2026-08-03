@@ -6,6 +6,7 @@ import { RinjaMascot } from "../components/RinjaMascot";
 import {
   getNotifications,
   markAllNotificationsRead,
+  type DatabaseNotification,
 } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
@@ -14,6 +15,10 @@ export const Route = createFileRoute("/notifications")({
   beforeLoad: requireAuth,
   component: Notifications,
 });
+
+function isChangeAlert(item: DatabaseNotification) {
+  return item.title !== "I'm watching";
+}
 
 function Notifications() {
   const { user } = useAuth();
@@ -27,6 +32,11 @@ function Notifications() {
 
   const notifications = notificationsQuery.data ?? [];
   const hasAlerts = notifications.length > 0;
+  // Headline follows the newest alert — old change cards keep their glow,
+  // but shouldn't keep saying "Something changed" forever.
+  const latestIsChange =
+    hasAlerts && isChangeAlert(notifications[0]!);
+  const hasChangeCards = notifications.some(isChangeAlert);
 
   useEffect(() => {
     if (!user || notifications.length === 0) return;
@@ -46,15 +56,19 @@ function Notifications() {
 
       <section className="mt-4 flex flex-col items-center px-6 text-center">
         <RinjaMascot
-          variant={hasAlerts ? "notify" : "relax"}
-          mood={hasAlerts ? "alert" : "sleepy"}
+          variant={latestIsChange ? "notify" : hasAlerts ? "idle" : "relax"}
+          mood={latestIsChange ? "alert" : hasAlerts ? "happy" : "sleepy"}
           size={180}
           flat
         />
         <p className="mt-2 text-[14px] font-medium animate-fade-in">
-          {hasAlerts
+          {latestIsChange
             ? "Something changed — take a look."
-            : "Everything looks quiet."}
+            : hasChangeCards
+              ? "Earlier changes are below."
+              : hasAlerts
+                ? "I’m watching. No changes yet."
+                : "Everything looks quiet."}
         </p>
       </section>
 
@@ -83,36 +97,43 @@ function Notifications() {
           </div>
         ) : hasAlerts ? (
           <div className="space-y-2">
-            {notifications.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-border bg-card p-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">{item.title}</p>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                    {new Date(item.created_at).toLocaleString([], {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </span>
+            {notifications.map((item) => {
+              const changed = isChangeAlert(item);
+              return (
+                <div
+                  key={item.id}
+                  className={
+                    changed
+                      ? "rounded-2xl border bg-card p-4 alert-change-glow"
+                      : "rounded-2xl border border-border bg-card p-4"
+                  }
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-semibold">{item.title}</p>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {new Date(item.created_at).toLocaleString([], {
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.body}
+                  </p>
+                  {item.watch_id && (
+                    <Link
+                      to="/watch/$id"
+                      params={{ id: item.watch_id }}
+                      className="mt-3 inline-flex text-[11px] font-medium text-primary"
+                    >
+                      View watch →
+                    </Link>
+                  )}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {item.body}
-                </p>
-                {item.watch_id && (
-                  <Link
-                    to="/watch/$id"
-                    params={{ id: item.watch_id }}
-                    className="mt-3 inline-flex text-[11px] font-medium text-primary"
-                  >
-                    View watch →
-                  </Link>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-3xl border border-dashed border-border bg-card/40 p-6 text-center">
