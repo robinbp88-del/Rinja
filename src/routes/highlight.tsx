@@ -378,7 +378,7 @@ function Highlight() {
       {!picking && !selection && (
         <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md flex-col items-stretch gap-2 px-4 pb-5 screen-safe">
           <div className="pointer-events-auto rounded-2xl border border-border bg-card/95 px-3 py-2 text-center text-[11px] text-muted-foreground backdrop-blur">
-            Page look blank?{" "}
+            Preview is a snapshot (some shops look frozen). Tap Highlight, or{" "}
             <button
               type="button"
               className="font-semibold text-primary"
@@ -389,7 +389,7 @@ function Highlight() {
                 })
               }
             >
-              Paste a value
+              paste a price
             </button>
             {" · "}
             <button
@@ -402,7 +402,7 @@ function Highlight() {
                 })
               }
             >
-              Watch whole page
+              watch whole page
             </button>
           </div>
           <button

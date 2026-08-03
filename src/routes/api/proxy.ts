@@ -64,7 +64,8 @@ export const Route = createFileRoute("/api/proxy")({
 
         let html: string;
         try {
-          // Light sanitize only — full script stripping breaks most real sites.
+          // Static snapshot for preview — SPA scripts break inside /api/proxy
+          // (wrong location/path) and replace the page with an error after ~1s.
           html = softenProxiedHtml(await readResponseTextLimited(upstream));
         } catch (e) {
           const message =
@@ -103,7 +104,7 @@ export const Route = createFileRoute("/api/proxy")({
             "cache-control": "no-store",
             "x-frame-options": "SAMEORIGIN",
             "content-security-policy":
-              "frame-ancestors 'self'; base-uri *; object-src 'none'",
+              "frame-ancestors 'self'; base-uri *; object-src 'none'; script-src 'unsafe-inline' 'self'",
           },
         });
       },
@@ -111,9 +112,15 @@ export const Route = createFileRoute("/api/proxy")({
   },
 });
 
-/** Soften only the riskiest bits; keep scripts so pages can render. */
+/**
+ * Preview is a static snapshot: keep markup/text for highlighting, drop site
+ * scripts that assume they own window.location (Next.js etc. flash then crash).
+ */
 function softenProxiedHtml(html: string): string {
   return html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<script\b[^>]*\/?>/gi, "")
+    .replace(/<link\b[^>]*\bas=["']script["'][^>]*>/gi, "")
     .replace(
       /\s(href|src|xlink:href)\s*=\s*("|')\s*javascript:[^"']*\2/gi,
       " $1=$2#$2",
