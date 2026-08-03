@@ -12,6 +12,7 @@ import {
   toMonitorError,
   type MonitorErrorCode,
 } from "./errors";
+import { sendImmediateChangeEmail } from "../digest";
 import type { WatchFrequency, WatchMode } from "../watch-mode";
 import { createServiceClient } from "../supabase.server";
 
@@ -331,6 +332,26 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
       userId: watch.user_id,
       oldValue: watch.current_value,
     });
+
+    if (applied?.notified) {
+      try {
+        const { data: authData } = await supabase.auth.admin.getUserById(
+          watch.user_id,
+        );
+        const toEmail = authData.user?.email;
+        if (toEmail) {
+          await sendImmediateChangeEmail({
+            userId: watch.user_id,
+            toEmail,
+            watchLabel: watch.label,
+            title,
+            body,
+          });
+        }
+      } catch (mailErr) {
+        console.warn("Immediate email failed:", mailErr);
+      }
+    }
 
     return {
       watchId: watch.id,

@@ -11,9 +11,10 @@ export default defineConfig({
     server: { entry: "server" },
   },
 
+  // Nitro beta typing lags runtime options like traceDeps.
   nitro: {
     preset: "vercel",
     // Ensure tslib is traced into the Vercel serverless bundle (Supabase needs it).
     traceDeps: ["tslib*"],
-  },
+  } as { preset: string },
 });

@@ -1,0 +1,62 @@
+# Daily email digest for users who chose "Daily summary".
+# Reuses MONITOR_CRON_SECRET. Requires RESEND_API_KEY + EMAIL_FROM on the app.
+#
+# GitHub secrets:
+#   MONITOR_URL_DIGEST   e.g. https://rinja.vercel.app/api/send-digests
+#   MONITOR_CRON_SECRET  same as monitor workflow
+
+name: Daily digest emails
+
+on:
+  schedule:
+    # 07:00 UTC ≈ 09:00 Oslo (winter) / 08:00 (summer)
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  send-digests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send digests
+        env:
+          MONITOR_URL_DIGEST: ${{ secrets.MONITOR_URL_DIGEST }}
+          MONITOR_URL: ${{ secrets.MONITOR_URL }}
+          MONITOR_CRON_SECRET: ${{ secrets.MONITOR_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${MONITOR_CRON_SECRET:-}" ]; then
+            echo "::error::Missing MONITOR_CRON_SECRET secret."
+            exit 1
+          fi
+
+          if [ -n "${MONITOR_URL_DIGEST:-}" ]; then
+            URL="$MONITOR_URL_DIGEST"
+          elif [ -n "${MONITOR_URL:-}" ]; then
+            URL="${MONITOR_URL%/api/check-watches}/api/send-digests"
+            URL="${URL%%\?*}"
+          else
+            echo "::error::Missing MONITOR_URL_DIGEST or MONITOR_URL."
+            exit 1
+          fi
+
+          BASE_URL="${URL%%\?*}"
+          echo "POST ${BASE_URL}"
+          BODY_FILE="$(mktemp)"
+          HTTP_CODE="$(curl -sS --max-time 120 \
+            -o "$BODY_FILE" \
+            -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${MONITOR_CRON_SECRET}" \
+            -H "Cache-Control: no-store" \
+            -H "Accept: application/json" \
+            "$BASE_URL")"
+
+          echo "HTTP ${HTTP_CODE}"
+          cat "$BODY_FILE"
+          echo
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Digest endpoint returned HTTP ${HTTP_CODE}"
+            exit 1
+          fi

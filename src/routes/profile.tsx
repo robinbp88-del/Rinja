@@ -143,7 +143,15 @@ function Profile() {
       <section className="mt-6 px-6">
         <Group>
           <Row icon={Palette} label="Theme" hint="Dark" />
-          <Row icon={Settings} label="Settings" />
+          <Link
+            to="/settings"
+            className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-accent"
+          >
+            <Settings className="h-4 w-4 text-muted-foreground" />
+            <span className="flex-1 text-sm">Settings</span>
+            <span className="text-xs text-muted-foreground">Email</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
           <Row icon={LifeBuoy} label="Support" />
           <Row icon={Shield} label="Privacy" />
         </Group>
