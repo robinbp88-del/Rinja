@@ -1,9 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ClipboardPaste,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 import { z } from "zod";
 import { requireAuth } from "../lib/requireAuth";
 import { hostFromUrl } from "../lib/store";
+import { htmlContainsVisibleText } from "../lib/text-presence";
 import { createWatch } from "../lib/watches";
 import { createStartedNotification } from "../lib/notifications";
 
@@ -38,7 +44,22 @@ function SetupWatch() {
 
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
+  const [presenceWarning, setPresenceWarning] = useState<string | null>(null);
+
+  const pasteText = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setValue(text.trim());
+        setPresenceWarning(null);
+        setError("");
+      }
+    } catch {
+      setError("Couldn’t read clipboard — paste manually.");
+    }
+  };
 
   const savePageWatch = async () => {
     try {
@@ -51,7 +72,6 @@ function SetupWatch() {
         title: host,
         label: `Page · ${host}`,
         currentValue: "",
-        // Some DB schemas require a non-empty selector; page mode ignores it.
         selector: "html",
         elementText: "",
         elementTag: "page",
@@ -80,7 +100,39 @@ function SetupWatch() {
     }
   };
 
-  const savePasteWatch = async () => {
+  const createPasteWatch = async (text: string) => {
+    const label =
+      text.length > 42 ? `Text · ${text.slice(0, 40)}…` : `Text · ${text}`;
+
+    const created = await createWatch({
+      url,
+      host,
+      title: host,
+      label,
+      currentValue: text,
+      selector: "",
+      elementText: text,
+      elementTag: "text",
+      elementHtml: "",
+      mode: "text",
+      frequency: "15m",
+      notify: true,
+    });
+
+    try {
+      await createStartedNotification({
+        watchId: created.id,
+        label: created.label,
+        host,
+      });
+    } catch (notifyErr) {
+      console.warn("Watch created, notification failed:", notifyErr);
+    }
+
+    navigate({ to: "/watching", search: { id: created.id } });
+  };
+
+  const savePasteWatch = async (opts?: { force?: boolean }) => {
     const text = value.trim();
     if (!text) return;
 
@@ -88,39 +140,37 @@ function SetupWatch() {
       setLoading(true);
       setError("");
 
-      const label =
-        text.length > 42 ? `Text · ${text.slice(0, 40)}…` : `Text · ${text}`;
-
-      const created = await createWatch({
-        url,
-        host,
-        title: host,
-        label,
-        currentValue: text,
-        selector: "",
-        elementText: text,
-        elementTag: "text",
-        elementHtml: "",
-        mode: "text",
-        frequency: "15m",
-        notify: true,
-      });
-
-      try {
-        await createStartedNotification({
-          watchId: created.id,
-          label: created.label,
-          host,
-        });
-      } catch (notifyErr) {
-        console.warn("Watch created, notification failed:", notifyErr);
+      if (!opts?.force && !presenceWarning) {
+        setChecking(true);
+        try {
+          const res = await fetch(
+            `/api/proxy?url=${encodeURIComponent(url)}`,
+            { headers: { Accept: "text/html" } },
+          );
+          if (res.ok) {
+            const html = await res.text();
+            if (!htmlContainsVisibleText(html, text)) {
+              setPresenceWarning(
+                "I couldn’t find that exact text on the page yet. Check the copy, or start watching anyway.",
+              );
+              setLoading(false);
+              setChecking(false);
+              return;
+            }
+          }
+        } catch {
+          // Network/proxy issues — don’t block create.
+        } finally {
+          setChecking(false);
+        }
       }
 
-      navigate({ to: "/watching", search: { id: created.id } });
+      await createPasteWatch(text);
     } catch (err: unknown) {
       setError(errorMessage(err));
     } finally {
       setLoading(false);
+      setChecking(false);
     }
   };
 
@@ -137,12 +187,15 @@ function SetupWatch() {
 
       {intent === "page" ? (
         <>
-          <h1 className="text-[28px] font-semibold tracking-tight">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            Step 2 of 2
+          </p>
+          <h1 className="mt-2 text-[28px] font-semibold tracking-tight">
             Any change on the page
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             I&apos;ll check {host} regularly and alert you if the page content
-            changes — no highlight needed. Works even when preview looks blank.
+            changes — no highlight needed.
           </p>
 
           <div className="mt-6 rounded-2xl border border-border bg-card/50 px-4 py-3 text-[13px] text-muted-foreground">
@@ -174,43 +227,96 @@ function SetupWatch() {
         </>
       ) : (
         <>
-          <h1 className="text-[28px] font-semibold tracking-tight">
-            If this text leaves the page
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+            Step 2 of 2
+          </p>
+          <h1 className="mt-2 text-[28px] font-semibold tracking-tight">
+            Paste the text to watch
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Open the real site in your browser, copy the exact text you care
-            about, and paste it here. I&apos;ll alert you if it disappears from
-            the page (or comes back).
+            On the site, copy the exact words you care about (price, “in stock”,
+            a title…). Paste them here — I&apos;ll alert you if they leave the
+            page.
           </p>
 
-          <label className="mt-8 block">
-            <span className="mb-1.5 block px-1 text-[11px] uppercase tracking-widest text-muted-foreground">
-              Text to watch
-            </span>
+          <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/50 px-4 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-[13px] font-medium">{host}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{url}</p>
+            </div>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-[12px] font-medium text-primary"
+            >
+              Open
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </div>
+
+          <ol className="mt-5 space-y-1.5 text-[12px] text-muted-foreground">
+            <li>1. Tap Open and find the text on the real site</li>
+            <li>2. Copy it exactly</li>
+            <li>3. Paste below and start watching</li>
+          </ol>
+
+          <label className="mt-6 block">
+            <div className="mb-1.5 flex items-center justify-between px-1">
+              <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                Text to watch
+              </span>
+              <button
+                type="button"
+                onClick={() => void pasteText()}
+                className="inline-flex items-center gap-1 text-[12px] font-medium text-primary"
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+                Paste
+              </button>
+            </div>
             <textarea
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setPresenceWarning(null);
+              }}
               rows={4}
-              placeholder="e.g. In stock, 1,299, Sold out…"
+              autoFocus
+              placeholder='e.g. "In stock" or 1 299'
               className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[15px] outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
             />
           </label>
+
+          {presenceWarning ? (
+            <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-[13px] text-amber-800 dark:text-amber-200">
+              <p>{presenceWarning}</p>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => void savePasteWatch({ force: true })}
+                className="mt-2 text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                Start watching anyway
+              </button>
+            </div>
+          ) : null}
 
           {error ? (
             <p className="mt-4 text-sm text-destructive">{error}</p>
           ) : null}
 
-          <div className="mt-auto flex flex-col gap-2 pb-8">
+          <div className="mt-auto flex flex-col gap-2 pb-8 pt-6">
             <button
               type="button"
               onClick={() => void savePasteWatch()}
-              disabled={loading || !value.trim()}
+              disabled={loading || checking || !value.trim()}
               className="flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-40"
             >
-              {loading ? (
+              {loading || checking ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving…
+                  {checking ? "Checking page…" : "Starting…"}
                 </>
               ) : (
                 "Start watching"

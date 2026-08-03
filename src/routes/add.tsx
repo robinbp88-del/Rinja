@@ -8,10 +8,12 @@ import {
   FileText,
   Type,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { z } from "zod";
 import { requireAuth } from "../lib/requireAuth";
 import { hostFromUrl } from "../lib/store";
+import { looksLikeSiteHome, normalizeWatchUrl } from "../lib/url-input";
 
 const searchSchema = z.object({ url: z.string().optional() });
 
@@ -25,10 +27,12 @@ function AddWatch() {
   const navigate = useNavigate();
   const { url: initialUrl } = Route.useSearch();
   const [url, setUrl] = useState(initialUrl ?? "");
+  const [showMore, setShowMore] = useState(false);
 
-  const trimmed = url.trim();
-  const isValid = /^https?:\/\/.+\..+/i.test(trimmed);
-  const host = isValid ? hostFromUrl(trimmed) : "";
+  const normalized = normalizeWatchUrl(url);
+  const isValid = Boolean(normalized);
+  const host = normalized ? hostFromUrl(normalized) : "";
+  const homeHint = normalized ? looksLikeSiteHome(normalized) : false;
 
   const paste = async () => {
     try {
@@ -39,25 +43,25 @@ function AddWatch() {
     }
   };
 
-  const goHighlight = () => {
-    if (!isValid) return;
-    navigate({ to: "/highlight", search: { url: trimmed } as never });
+  const goPaste = () => {
+    if (!normalized) return;
+    navigate({
+      to: "/setup",
+      search: { url: normalized, intent: "paste" },
+    });
   };
 
   const goPage = () => {
-    if (!isValid) return;
+    if (!normalized) return;
     navigate({
       to: "/setup",
-      search: { url: trimmed, intent: "page" },
+      search: { url: normalized, intent: "page" },
     });
   };
 
-  const goPaste = () => {
-    if (!isValid) return;
-    navigate({
-      to: "/setup",
-      search: { url: trimmed, intent: "paste" },
-    });
+  const goHighlight = () => {
+    if (!normalized) return;
+    navigate({ to: "/highlight", search: { url: normalized } as never });
   };
 
   return (
@@ -81,9 +85,14 @@ function AddWatch() {
         </button>
       </div>
 
-      <h1 className="text-[28px] font-semibold tracking-tight">New watch</h1>
+      <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+        Step 1 of 2
+      </p>
+      <h1 className="mt-2 text-[28px] font-semibold tracking-tight">
+        Paste the page URL
+      </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Paste the full page URL, then choose what I should watch for.
+        Use the full product or listing link — not just the site home page.
       </p>
 
       <div className="mt-6 flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">
@@ -91,7 +100,13 @@ function AddWatch() {
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && isValid) {
+              e.preventDefault();
+              goPaste();
+            }
+          }}
+          placeholder="https://…"
           autoFocus
           inputMode="url"
           autoCapitalize="off"
@@ -101,10 +116,11 @@ function AddWatch() {
         <button
           type="button"
           onClick={() => void paste()}
-          className="text-xs text-primary"
+          className="inline-flex items-center gap-1 text-[12px] font-medium text-primary"
           aria-label="Paste from clipboard"
         >
           <ClipboardPaste className="h-4 w-4" />
+          Paste
         </button>
       </div>
 
@@ -112,41 +128,59 @@ function AddWatch() {
         <p className="mt-2 truncate px-1 text-[12px] text-muted-foreground">
           {host}
         </p>
+      ) : url.trim() ? (
+        <p className="mt-2 px-1 text-[12px] text-destructive">
+          That doesn’t look like a full URL yet.
+        </p>
       ) : null}
 
-      <p className="mt-8 text-[11px] uppercase tracking-widest text-muted-foreground">
-        What should I watch for?
-      </p>
+      {homeHint ? (
+        <p className="mt-2 px-1 text-[12px] text-amber-700 dark:text-amber-300">
+          This looks like a homepage. Product or listing URLs work much better.
+        </p>
+      ) : null}
 
-      <div className="mt-3 space-y-2">
-        <OptionCard
-          icon={<Type className="h-5 w-5" />}
-          title="If this text leaves the page"
-          description="Paste a price, “in stock”, or other text to watch"
+      <div className="mt-auto flex flex-col gap-2 pb-8 pt-8">
+        <button
+          type="button"
           onClick={goPaste}
           disabled={!isValid}
-          primary
-        />
-        <OptionCard
-          icon={<FileText className="h-5 w-5" />}
-          title="Any change on the page"
-          description="Alert me if the page content changes"
-          onClick={goPage}
-          disabled={!isValid}
-        />
-        <OptionCard
-          icon={<MousePointerClick className="h-5 w-5" />}
-          title="Pick text on the page"
-          description="Highlight in preview when the site allows it"
-          onClick={goHighlight}
-          disabled={!isValid}
-        />
-      </div>
+          className="flex h-12 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground transition active:scale-[0.98] disabled:opacity-40"
+        >
+          <Type className="h-4 w-4" />
+          Continue — paste text to watch
+        </button>
 
-      <p className="mt-4 pb-8 text-center text-[11px] text-muted-foreground">
-        Highlight needs a working preview. Paste or whole page are more
-        reliable.
-      </p>
+        <button
+          type="button"
+          onClick={() => setShowMore((v) => !v)}
+          className="flex items-center justify-center gap-1 py-2 text-[12px] font-medium text-muted-foreground"
+        >
+          More options
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition ${showMore ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {showMore ? (
+          <div className="space-y-2">
+            <OptionCard
+              icon={<FileText className="h-5 w-5" />}
+              title="Any change on the page"
+              description="Alert me if the page content changes"
+              onClick={goPage}
+              disabled={!isValid}
+            />
+            <OptionCard
+              icon={<MousePointerClick className="h-5 w-5" />}
+              title="Pick text on the page"
+              description="Highlight in preview when the site allows it"
+              onClick={goHighlight}
+              disabled={!isValid}
+            />
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -157,35 +191,18 @@ function OptionCard(props: {
   description: string;
   onClick: () => void;
   disabled?: boolean;
-  primary?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={props.onClick}
       disabled={props.disabled}
-      className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3.5 text-left transition active:scale-[0.99] disabled:opacity-40 ${
-        props.primary
-          ? "border-primary/50 bg-primary text-primary-foreground"
-          : "border-border bg-card"
-      }`}
+      className="flex w-full items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-left transition active:scale-[0.99] disabled:opacity-40"
     >
-      <span
-        className={`mt-0.5 shrink-0 ${
-          props.primary ? "text-primary-foreground" : "text-primary"
-        }`}
-      >
-        {props.icon}
-      </span>
+      <span className="mt-0.5 shrink-0 text-primary">{props.icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{props.title}</span>
-        <span
-          className={`mt-0.5 block text-[12px] ${
-            props.primary
-              ? "text-primary-foreground/80"
-              : "text-muted-foreground"
-          }`}
-        >
+        <span className="mt-0.5 block text-[12px] text-muted-foreground">
           {props.description}
         </span>
       </span>

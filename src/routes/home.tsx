@@ -16,6 +16,7 @@ import { getWatches, watchStatusLine } from "../lib/watches";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
+import { normalizeWatchUrl } from "../lib/url-input";
 import binoculars from "../assets/binoculars.png";
 
 export const Route = createFileRoute("/home")({
@@ -85,10 +86,12 @@ function Home() {
     const value = query.trim();
     if (!value) return;
 
-    if (/^https?:\/\//i.test(value)) {
+    const url = normalizeWatchUrl(value);
+    if (url) {
+      // Happy path: URL → paste text setup (skip the chooser).
       navigate({
-        to: "/add",
-        search: { url: value } as never,
+        to: "/setup",
+        search: { url, intent: "paste" },
       });
       return;
     }
@@ -126,7 +129,7 @@ function Home() {
           What should I keep an eye on?
         </h1>
         <p className="mt-3 text-[14px] leading-snug text-muted-foreground">
-          1) Paste a URL · 2) Tap what matters · 3) I’ll alert you on change
+          1) Paste a page URL · 2) Paste the text · 3) I&apos;ll alert you
         </p>
       </section>
 
@@ -236,8 +239,8 @@ function Home() {
             <p className="mt-4 text-[15px] font-medium">Nothing on my list yet.</p>
 
             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-              Paste a URL above, open the page, tap the price or text you care
-              about — then I’ll watch it for you.
+              Paste a full page URL above, then paste the exact text you care
+              about — I&apos;ll watch for when it leaves the page.
             </p>
 
             <button
