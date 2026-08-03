@@ -21,8 +21,14 @@ if (!secret) {
   process.exit(1);
 }
 
-const url = `${base.replace(/\/$/, "")}/api/check-watches?secret=${encodeURIComponent(secret)}&force=1`;
-const res = await fetch(url);
+const url = `${base.replace(/\/$/, "")}/api/check-watches?force=1`;
+const res = await fetch(url, {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${secret}`,
+    "Cache-Control": "no-store",
+  },
+});
 const body = await res.text();
 
 console.log(`status ${res.status}`);

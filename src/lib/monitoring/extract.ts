@@ -1,4 +1,8 @@
 import { parseHTML } from "linkedom";
+import {
+  fetchSafeOutbound,
+  readResponseTextLimited,
+} from "../outbound-url";
 
 export function extractValue(
   html: string,
@@ -34,16 +38,7 @@ export function extractValue(
 }
 
 export async function fetchPageHtml(url: string): Promise<string> {
-  const response = await fetch(url, {
-    redirect: "follow",
-    headers: {
-      "user-agent":
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-      accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "accept-language": "en-US,en;q=0.9",
-    },
-  });
+  const { response } = await fetchSafeOutbound(url);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
@@ -54,5 +49,5 @@ export async function fetchPageHtml(url: string): Promise<string> {
     throw new Error(`Unsupported content type for ${url}: ${contentType}`);
   }
 
-  return response.text();
+  return readResponseTextLimited(response);
 }

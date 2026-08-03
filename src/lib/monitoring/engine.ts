@@ -1,8 +1,9 @@
-import { createServiceClient } from "../supabase.server";
 import { changeSummary, valuesEqual } from "./compare";
 import { extractValue, fetchPageHtml } from "./extract";
+import type { WatchFrequency, WatchMode } from "../watch-mode";
+import { createServiceClient } from "../supabase.server";
 
-const FREQ_MS: Record<string, number> = {
+const FREQ_MS: Record<WatchFrequency, number> = {
   "5m": 5 * 60 * 1000,
   "15m": 15 * 60 * 1000,
   "1h": 60 * 60 * 1000,
@@ -11,7 +12,7 @@ const FREQ_MS: Record<string, number> = {
 };
 
 export function frequencyMs(frequency: string | null | undefined): number {
-  return FREQ_MS[frequency ?? "15m"] ?? FREQ_MS["15m"];
+  return FREQ_MS[(frequency as WatchFrequency) ?? "15m"] ?? FREQ_MS["15m"];
 }
 
 export function isWatchDue(
@@ -36,8 +37,8 @@ export type WatchRow = {
   current_value: string | null;
   selector: string | null;
   element_text: string | null;
-  mode: string | null;
-  frequency: string | null;
+  mode: WatchMode | string | null;
+  frequency: WatchFrequency | string | null;
   paused: boolean;
   notify: boolean | null;
   created_at: string;
@@ -76,10 +77,17 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     const supabase = createServiceClient();
 
     if (!extracted) {
-      await supabase
+      const { error: missError } = await supabase
         .from("watches")
         .update({ last_checked: now, updated_at: now })
         .eq("id", watch.id);
+      if (missError) {
+        return {
+          watchId: watch.id,
+          status: "error",
+          message: missError.message,
+        };
+      }
 
       return {
         watchId: watch.id,
@@ -95,10 +103,17 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     );
 
     if (!changed) {
-      await supabase
+      const { error: touchError } = await supabase
         .from("watches")
         .update({ last_checked: now, updated_at: now })
         .eq("id", watch.id);
+      if (touchError) {
+        return {
+          watchId: watch.id,
+          status: "error",
+          message: touchError.message,
+        };
+      }
 
       return { watchId: watch.id, status: "unchanged" };
     }
@@ -109,7 +124,7 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
       extracted,
     );
 
-    await supabase
+    const { error: updateError } = await supabase
       .from("watches")
       .update({
         current_value: extracted,
@@ -117,10 +132,17 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
         updated_at: now,
       })
       .eq("id", watch.id);
+    if (updateError) {
+      return {
+        watchId: watch.id,
+        status: "error",
+        message: updateError.message,
+      };
+    }
 
     // Default true when column is missing/null (pre-migration rows).
     if (watch.notify !== false) {
-      await supabase.from("notifications").insert({
+      const { error: notifyError } = await supabase.from("notifications").insert({
         user_id: watch.user_id,
         watch_id: watch.id,
         title: `${title} · ${watch.label}`,
@@ -129,6 +151,13 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
         new_value: extracted,
         read: false,
       });
+      if (notifyError) {
+        return {
+          watchId: watch.id,
+          status: "error",
+          message: notifyError.message,
+        };
+      }
     }
 
     return {

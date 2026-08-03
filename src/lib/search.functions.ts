@@ -1,8 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { SearchIntent, SearchResponse, SearchResult, Availability } from "./search/types";
 
-const InputSchema = z.object({ query: z.string().min(1).max(300) });
+const InputSchema = z.object({
+  query: z.string().min(1).max(300),
+  accessToken: z.string().min(20),
+});
 
 const ResultSchema = z.object({
   intent: z.string(),
@@ -61,6 +65,26 @@ Never invent domains. Never chat. Never ask questions. Return ONLY the JSON obje
 export const intelligentSearch = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => InputSchema.parse(input))
   .handler(async ({ data }): Promise<SearchResponse> => {
+    const supabaseUrl =
+      process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !anonKey) {
+      throw new Error("Missing Supabase config");
+    }
+
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: { Authorization: `Bearer ${data.accessToken}` },
+      },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: userError } = await userClient.auth.getUser(
+      data.accessToken,
+    );
+    if (userError || !userData.user) {
+      throw new Error("Unauthorized");
+    }
+
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 

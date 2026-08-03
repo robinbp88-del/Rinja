@@ -10,6 +10,7 @@ import { useServerFn } from "@tanstack/react-start";
 
 import { RinjaMascot } from "../components/RinjaMascot";
 import { requireAuth } from "../lib/requireAuth";
+import { supabase } from "../lib/supabase";
 
 const searchSchema = z.object({ q: z.string().optional() });
 
@@ -190,19 +191,30 @@ function SearchPage() {
     setLoading(true);
     setError(null);
     setResponse(null);
-    search({ data: { query } })
-      .then((res) => {
+
+    void (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error("Not signed in");
+        }
+        const res = await search({
+          data: { query, accessToken: session.access_token },
+        });
         if (cancelled) return;
         setResponse(res);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "Something went wrong.";
+        const msg =
+          err instanceof Error ? err.message : "Something went wrong.";
         setError(msg);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
+
     return () => {
       cancelled = true;
     };

@@ -58,7 +58,29 @@ function Notifications() {
       </section>
 
       <div className="mt-6 px-6">
-        {hasAlerts ? (
+        {notificationsQuery.isLoading ? (
+          <p className="text-center text-[13px] text-muted-foreground">
+            Loading alerts…
+          </p>
+        ) : notificationsQuery.isError ? (
+          <div className="rounded-3xl border border-destructive/30 bg-destructive/10 p-6 text-center">
+            <p className="text-[14px] font-medium text-destructive">
+              Couldn’t load alerts
+            </p>
+            <p className="mt-2 text-[13px] text-muted-foreground">
+              {notificationsQuery.error instanceof Error
+                ? notificationsQuery.error.message
+                : "Something went wrong. Try again."}
+            </p>
+            <button
+              type="button"
+              onClick={() => void notificationsQuery.refetch()}
+              className="mt-5 inline-flex rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            >
+              Retry
+            </button>
+          </div>
+        ) : hasAlerts ? (
           <div className="space-y-2">
             {notifications.map((item) => (
               <div

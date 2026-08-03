@@ -18,8 +18,20 @@ import {
 import { z } from "zod";
 
 import { hostFromUrl } from "../lib/store";
-
-type WatchMode = "price" | "stock" | "text" | "image" | "any" | "custom";
+import type { WatchMode } from "../lib/watch-mode";
+import {
+  isTrustedPickerEvent,
+  parsePickerMessage,
+  postToPicker,
+  type PickerSelection,
+} from "../lib/picker-protocol";
+import {
+  defaultModeFor,
+  detectKind,
+  kindLabel,
+  labelFor,
+  type ElementKind,
+} from "../lib/highlight-detect";
 import {
   createWatch,
   getWatchById,
@@ -41,14 +53,6 @@ export const Route = createFileRoute("/highlight")({
   component: Highlight,
 });
 
-type Selection = {
-  selector: string;
-  tag: string;
-  text: string;
-  html: string;
-};
-
-type Kind = "price" | "stock" | "date" | "image" | "text";
 type SaveState = "idle" | "saving" | "done";
 
 function Highlight() {
@@ -63,7 +67,7 @@ function Highlight() {
 
   const [ready, setReady] = useState(false);
   const [pageTitle, setPageTitle] = useState("");
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [selection, setSelection] = useState<PickerSelection | null>(null);
   const [picking, setPicking] = useState(false);
   const [mode, setMode] = useState<WatchMode>("any");
   const [notify, setNotify] = useState(true);
@@ -103,28 +107,26 @@ function Highlight() {
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      const data = event.data;
-
-      if (!data || data.source !== "watchpage-picker") {
+      const message = parsePickerMessage(event.data);
+      if (!message) return;
+      if (!isTrustedPickerEvent(event, iframeRef.current?.contentWindow)) {
         return;
       }
 
-      if (data.type === "ready") {
+      if (message.type === "ready") {
         setReady(true);
 
-        if (data.payload?.title) {
-          setPageTitle(data.payload.title);
+        if (message.payload?.title) {
+          setPageTitle(message.payload.title);
         }
 
         return;
       }
 
-      if (data.type === "selected") {
-        const selected = data.payload as Selection;
-
-        setSelection(selected);
+      if (message.type === "selected") {
+        setSelection(message.payload);
         setSaveState("idle");
-        setMode(defaultModeFor(detectKind(selected)));
+        setMode(defaultModeFor(detectKind(message.payload)));
 
         if (navigator.vibrate) {
           navigator.vibrate(8);
@@ -133,15 +135,15 @@ function Highlight() {
         return;
       }
 
-      if (data.type === "revealed") {
-        console.info("Saved element revealed:", data.payload?.selector);
+      if (message.type === "revealed") {
+        console.info("Saved element revealed:", message.payload?.selector);
         return;
       }
 
-      if (data.type === "reveal-missing") {
+      if (message.type === "reveal-missing") {
         console.warn(
           "Saved element could not be found:",
-          data.payload?.selector,
+          message.payload?.selector,
         );
       }
     };
@@ -163,14 +165,9 @@ function Highlight() {
     }
 
     const reveal = () => {
-      iframeRef.current?.contentWindow?.postMessage(
-        {
-          source: "watchpage-host",
-          type: "reveal",
-          selector: resolvedSelector,
-        },
-        "*",
-      );
+      postToPicker(iframeRef.current?.contentWindow, "reveal", {
+        selector: resolvedSelector,
+      });
     };
 
     const timers = [
@@ -185,17 +182,10 @@ function Highlight() {
   }, [ready, resolvedSelector]);
 
   const post = (
-    type: string,
+    type: "enable" | "disable" | "clear" | "mark",
     extra?: Record<string, unknown>,
   ) => {
-    iframeRef.current?.contentWindow?.postMessage(
-      {
-        source: "watchpage-host",
-        type,
-        ...extra,
-      },
-      "*",
-    );
+    postToPicker(iframeRef.current?.contentWindow, type, extra);
   };
 
   const enablePicking = () => {
@@ -371,6 +361,10 @@ function Highlight() {
           title={`Preview of ${host}`}
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
           className="h-[calc(100vh-64px)] w-full border-0 bg-white"
+          onLoad={() => {
+            // Fallback if picker postMessage is delayed/blocked.
+            setReady(true);
+          }}
         />
       </div>
 
@@ -564,85 +558,13 @@ function ImagePreview({ html }: { html: string }) {
   );
 }
 
-function detectKind(selection: Selection | null): Kind {
-  if (!selection) return "text";
-
-  if (
-    selection.tag === "img" ||
-    /<img\b/i.test(selection.html)
-  ) {
-    return "image";
-  }
-
-  const text = selection.text.trim();
-
-  if (!text) return "text";
-
-  if (
-    /([$€£¥₹]|\bkr\b|\bNOK\b|\bUSD\b|\bEUR\b|\bGBP\b)\s?\d/i.test(
-      text,
-    )
-  ) {
-    return "price";
-  }
-
-  if (
-    /^\s*[$€£¥₹]?\s?\d{1,3}([.,\s]\d{3})*([.,]\d{1,2})?\s?(kr|NOK|USD|EUR|GBP|\$|€|£)?\s*$/i.test(
-      text,
-    )
-  ) {
-    return "price";
-  }
-
-  if (
-    /(in stock|out of stock|sold out|available|unavailable|på lager|utsolgt)/i.test(
-      text,
-    )
-  ) {
-    return "stock";
-  }
-
-  if (
-    /\b(\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?)\b/.test(
-      text,
-    )
-  ) {
-    return "date";
-  }
-
-  if (
-    /\b(mon|tue|wed|thu|fri|sat|sun|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(
-      text,
-    )
-  ) {
-    return "date";
-  }
-
-  return "text";
-}
-
-function kindLabel(kind: Kind) {
-  if (kind === "price") return "Price detected";
-  if (kind === "stock") return "Stock detected";
-  if (kind === "date") return "Date detected";
-  if (kind === "image") return "Image detected";
-  return "Element selected";
-}
-
-function defaultModeFor(kind: Kind): WatchMode {
-  if (kind === "price") return "price";
-  if (kind === "stock") return "stock";
-  if (kind === "image") return "image";
-  return "any";
-}
-
 type Option = {
   value: WatchMode;
   label: string;
   icon: typeof Tag;
 };
 
-function optionsFor(kind: Kind): Option[] {
+function optionsFor(kind: ElementKind): Option[] {
   const options: Option[] = [];
 
   if (kind === "price") {
@@ -684,20 +606,4 @@ function optionsFor(kind: Kind): Option[] {
   });
 
   return options;
-}
-
-function labelFor(
-  kind: Kind,
-  mode: WatchMode,
-  text: string,
-) {
-  const trimmed = text.trim().slice(0, 40);
-
-  if (mode === "price") return `Price · ${trimmed}`;
-  if (mode === "stock") return "Stock availability";
-  if (mode === "image") return "Image";
-  if (mode === "text") return trimmed || "Text element";
-  if (mode === "custom") return trimmed || `${kind} element`;
-
-  return trimmed || "Any change";
 }

@@ -49,3 +49,16 @@ export function onAuthStateChange(
 ) {
   return supabase.auth.onAuthStateChange(callback);
 }
+
+/** Require a signed-in user for data-layer calls. */
+export async function requireUser() {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) throw error;
+  if (!user) throw new Error("You must be signed in.");
+
+  return user;
+}

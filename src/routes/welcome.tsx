@@ -32,6 +32,7 @@ function Welcome() {
           size={168}
           className="mb-8"
           priority
+          flat
         />
         <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
           Rinja

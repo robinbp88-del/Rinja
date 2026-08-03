@@ -1,3 +1,4 @@
+import { requireUser } from "./auth";
 import { supabase } from "./supabase";
 
 export type DatabaseNotification = {
@@ -11,18 +12,6 @@ export type DatabaseNotification = {
   read: boolean;
   created_at: string;
 };
-
-async function requireUser() {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) throw error;
-  if (!user) throw new Error("You must be signed in.");
-
-  return user;
-}
 
 export async function getNotifications(): Promise<DatabaseNotification[]> {
   const user = await requireUser();

@@ -26,4 +26,7 @@ jobs:
           fi
 
           curl -fsS --max-time 120 \
-            "${MONITOR_URL}?secret=${MONITOR_CRON_SECRET}"
+            -X POST \
+            -H "Authorization: Bearer ${MONITOR_CRON_SECRET}" \
+            -H "Cache-Control: no-store" \
+            "$MONITOR_URL"

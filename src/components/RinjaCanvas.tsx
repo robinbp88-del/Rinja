@@ -83,7 +83,7 @@ function RinjaModel({ mood }: { mood: RinjaMood }) {
   );
 }
 
-useGLTF.preload(MODEL_URL);
+
 
 export default function RinjaCanvas({ mood, size }: Props) {
   return (

@@ -1,3 +1,5 @@
+import type { WatchMode } from "../watch-mode";
+
 function normalizeText(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -6,8 +8,27 @@ function extractPriceNumber(value: string | null | undefined): string | null {
   if (!value) return null;
   const match = value.replace(/\s/g, "").match(/[\d,.]+/);
   if (!match) return null;
-  const raw = match[0].replace(/,/g, "");
-  const num = parseFloat(raw);
+  const token = match[0];
+  const lastComma = token.lastIndexOf(",");
+  const lastDot = token.lastIndexOf(".");
+  let normalized = token;
+
+  if (lastComma > lastDot) {
+    // EU/NO: 1.234,56 or 19,99
+    normalized = token.replace(/\./g, "").replace(",", ".");
+  } else if (lastDot > lastComma) {
+    // US/UK: 1,234.56 or 19.99
+    normalized = token.replace(/,/g, "");
+  } else if (lastComma !== -1) {
+    // Only commas: treat last as decimal if 1–2 digits after
+    const frac = token.length - lastComma - 1;
+    normalized =
+      frac > 0 && frac <= 2
+        ? token.replace(/,/g, (m, i) => (i === lastComma ? "." : ""))
+        : token.replace(/,/g, "");
+  }
+
+  const num = parseFloat(normalized);
   return Number.isNaN(num) ? null : num.toFixed(2);
 }
 
@@ -26,7 +47,7 @@ function stockBucket(value: string | null | undefined): string {
 export function valuesEqual(
   previous: string | null | undefined,
   next: string | null | undefined,
-  mode: string | null | undefined,
+  mode: WatchMode | string | null | undefined,
 ): boolean {
   const prev = previous ?? "";
   const curr = next ?? "";
@@ -54,7 +75,7 @@ export function valuesEqual(
 }
 
 export function changeSummary(
-  mode: string | null | undefined,
+  mode: WatchMode | string | null | undefined,
   oldValue: string | null,
   newValue: string,
 ): { title: string; body: string } {

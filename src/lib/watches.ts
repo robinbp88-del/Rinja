@@ -1,4 +1,6 @@
+import { requireUser } from "./auth";
 import { supabase } from "./supabase";
+import type { WatchFrequency, WatchMode } from "./watch-mode";
 
 export type CreateWatchInput = {
   url: string;
@@ -10,8 +12,8 @@ export type CreateWatchInput = {
   elementText: string;
   elementTag: string;
   elementHtml: string;
-  mode: string;
-  frequency: string;
+  mode: WatchMode;
+  frequency: WatchFrequency | string;
   notify?: boolean;
 };
 
@@ -22,7 +24,7 @@ export type UpdateWatchSelectionInput = {
   elementText: string;
   elementTag: string;
   elementHtml: string;
-  mode: string;
+  mode: WatchMode;
   notify?: boolean;
 };
 
@@ -38,26 +40,14 @@ export type DatabaseWatch = {
   element_text: string | null;
   element_tag: string | null;
   element_html: string | null;
-  mode: string | null;
-  frequency: string | null;
+  mode: WatchMode | string | null;
+  frequency: WatchFrequency | string | null;
   paused: boolean;
   notify: boolean | null;
   created_at: string;
   updated_at: string | null;
   last_checked: string | null;
 };
-
-async function requireUser() {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) throw error;
-  if (!user) throw new Error("You must be signed in.");
-
-  return user;
-}
 
 export async function createWatch(
   input: CreateWatchInput,

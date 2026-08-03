@@ -330,7 +330,9 @@ function WatchDetail() {
         </div>
       </section>
 
-      {(pauseMutation.isError || deleteMutation.isError) && (
+      {(pauseMutation.isError ||
+        deleteMutation.isError ||
+        notifyMutation.isError) && (
         <section className="mt-5 px-6">
           <p className="text-center text-sm text-destructive">
             Something went wrong. Please try again.
