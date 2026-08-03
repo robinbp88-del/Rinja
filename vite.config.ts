@@ -15,6 +15,7 @@ export default defineConfig({
   nitro: {
     preset: "vercel",
     // Ensure tslib is traced into the Vercel serverless bundle (Supabase needs it).
+    // Also import "tslib" from src/server.ts so NFT always sees a hard edge.
     traceDeps: ["tslib*"],
-  } as { preset: string },
+  } as Record<string, unknown>,
 });
