@@ -86,7 +86,8 @@ function Login() {
             {pendingConfirm
               ? `We sent a confirmation link to ${email}. Open it, then come back and sign in.`
               : registerMode
-                ? "Beta signup with email + password. Google comes later."
+                ? "Create an account with email, or go back and use Google."
+                : "Sign in with email, or go back and use Google."
                 : "Sign in with the email you used to create your account."}
           </p>
         </div>

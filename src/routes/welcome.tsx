@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { Apple, Mail } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Apple, Loader2, Mail } from "lucide-react";
 
 import { RinjaMascot } from "../components/RinjaMascot";
+import { signInWithGoogle } from "../lib/auth";
 import { useAuth } from "../providers/AuthProvider";
 
 export const Route = createFileRoute("/welcome")({
@@ -12,6 +13,8 @@ export const Route = createFileRoute("/welcome")({
 function Welcome() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleError, setGoogleError] = useState("");
 
   useEffect(() => {
     if (!loading && user) {
@@ -21,6 +24,21 @@ function Welcome() {
 
   const goLogin = () => {
     navigate({ to: "/login" });
+  };
+
+  const goGoogle = async () => {
+    if (googleBusy) return;
+    setGoogleBusy(true);
+    setGoogleError("");
+    try {
+      await signInWithGoogle();
+      // Browser redirects to Google — no further action here.
+    } catch (error) {
+      setGoogleError(
+        error instanceof Error ? error.message : "Google sign-in failed.",
+      );
+      setGoogleBusy(false);
+    }
   };
 
   return (
@@ -76,6 +94,20 @@ function Welcome() {
       <div className="flex flex-col gap-3 pb-10">
         <button
           type="button"
+          onClick={() => void goGoogle()}
+          disabled={googleBusy}
+          className="flex h-13 items-center justify-center gap-3 rounded-full border border-border bg-card text-sm font-semibold transition active:scale-[0.97] disabled:opacity-60"
+        >
+          {googleBusy ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : (
+            <GoogleG />
+          )}
+          {googleBusy ? "Opening Google…" : "Continue with Google"}
+        </button>
+
+        <button
+          type="button"
           onClick={goLogin}
           className="flex h-13 items-center justify-center gap-2 rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/30 transition active:scale-[0.97]"
         >
@@ -83,19 +115,9 @@ function Welcome() {
           Continue with email
         </button>
 
-        <p className="text-center text-[12px] text-muted-foreground">
-          Beta: use <span className="text-foreground">email + password</span>.
-          Google / Apple come later.
-        </p>
-
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className="flex h-13 items-center justify-center gap-3 rounded-full border border-border bg-card/40 text-sm font-semibold text-muted-foreground opacity-60"
-        >
-          <GoogleG /> Google — coming soon
-        </button>
+        {googleError ? (
+          <p className="text-center text-[12px] text-destructive">{googleError}</p>
+        ) : null}
 
         <button
           type="button"
@@ -116,7 +138,7 @@ function Welcome() {
 
 function GoogleG() {
   return (
-    <svg viewBox="0 0 48 48" className="h-5 w-5 opacity-70">
+    <svg viewBox="0 0 48 48" className="h-5 w-5">
       <path
         fill="#EA4335"
         d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
