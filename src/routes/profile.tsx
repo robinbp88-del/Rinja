@@ -26,6 +26,7 @@ import { useStore } from "../lib/store";
 import { signOut } from "../lib/auth";
 import { getWatches } from "../lib/watches";
 import { toUserError } from "../lib/user-errors";
+import { APP_VERSION_LABEL } from "../lib/app-version";
 import { useAuth } from "../providers/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { requireAuth } from "../lib/requireAuth";
@@ -217,6 +218,10 @@ function Profile() {
         </button>
 
         {logoutError && <p className="mt-3 text-center text-xs text-destructive">{logoutError}</p>}
+
+        <p className="pt-2 text-center text-[11px] text-muted-foreground/80">
+          Rinja {APP_VERSION_LABEL} · private beta
+        </p>
       </section>
 
       <InboxSheet open={inboxOpen} onOpenChange={setInboxOpen} />
