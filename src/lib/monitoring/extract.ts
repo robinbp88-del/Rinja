@@ -1,8 +1,5 @@
 import { parseHTML } from "linkedom";
-import {
-  fetchSafeOutbound,
-  readResponseTextLimited,
-} from "../outbound-url";
+import { fetchSafeOutbound, readResponseTextLimited } from "../outbound-url";
 import { MonitorError } from "./errors";
 
 /** Strip noisy nodes, then return collapsed body text used for monitoring. */
@@ -11,15 +8,11 @@ export function visiblePageText(html: string): string {
   const root = document.documentElement ?? document.body;
   if (!root) return "";
 
-  for (const el of root.querySelectorAll(
-    "script, style, noscript, template, svg, iframe",
-  )) {
+  for (const el of root.querySelectorAll("script, style, noscript, template, svg, iframe")) {
     el.remove();
   }
 
-  return (document.body?.textContent ?? root.textContent ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (document.body?.textContent ?? root.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
 export function extractValue(
@@ -78,9 +71,7 @@ export function pageContainsText(html: string, needle: string): boolean {
 }
 
 /** Heuristic quality of fetched HTML for monitoring usefulness. */
-export function scoreFetchedHtml(
-  html: string,
-): "ok" | "empty_html" | "js_shell" {
+export function scoreFetchedHtml(html: string): "ok" | "empty_html" | "js_shell" {
   const trimmed = html.replace(/\s+/g, " ").trim();
   if (trimmed.length < 40) return "empty_html";
 
@@ -130,18 +121,12 @@ export async function fetchPageHtml(url: string): Promise<string> {
     if (status === 429) {
       throw new MonitorError("http_429", `Failed to fetch ${url}: HTTP 429`);
     }
-    throw new MonitorError(
-      "http_other",
-      `Failed to fetch ${url}: HTTP ${status}`,
-    );
+    throw new MonitorError("http_other", `Failed to fetch ${url}: HTTP ${status}`);
   }
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("text/html")) {
-    throw new MonitorError(
-      "unsupported",
-      `Unsupported content type for ${url}: ${contentType}`,
-    );
+    throw new MonitorError("unsupported", `Unsupported content type for ${url}: ${contentType}`);
   }
 
   try {

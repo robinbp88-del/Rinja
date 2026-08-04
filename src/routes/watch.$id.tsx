@@ -1,12 +1,5 @@
-import {
-  createFileRoute,
-  useNavigate,
-} from "@tanstack/react-router";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -104,19 +97,11 @@ function WatchDetail() {
   }, [id, queryClient]);
 
   const pauseMutation = useMutation({
-    mutationFn: ({
-      watchId,
-      paused,
-    }: {
-      watchId: string;
-      paused: boolean;
-    }) => setWatchPaused(watchId, paused),
+    mutationFn: ({ watchId, paused }: { watchId: string; paused: boolean }) =>
+      setWatchPaused(watchId, paused),
 
     onSuccess: async (updatedWatch) => {
-      queryClient.setQueryData(
-        ["watch", updatedWatch.id],
-        updatedWatch,
-      );
+      queryClient.setQueryData(["watch", updatedWatch.id], updatedWatch);
 
       await queryClient.invalidateQueries({
         queryKey: ["watches"],
@@ -125,19 +110,11 @@ function WatchDetail() {
   });
 
   const notifyMutation = useMutation({
-    mutationFn: ({
-      watchId,
-      notify,
-    }: {
-      watchId: string;
-      notify: boolean;
-    }) => setWatchNotify(watchId, notify),
+    mutationFn: ({ watchId, notify }: { watchId: string; notify: boolean }) =>
+      setWatchNotify(watchId, notify),
 
     onSuccess: async (updatedWatch) => {
-      queryClient.setQueryData(
-        ["watch", updatedWatch.id],
-        updatedWatch,
-      );
+      queryClient.setQueryData(["watch", updatedWatch.id], updatedWatch);
 
       await queryClient.invalidateQueries({
         queryKey: ["watches"],
@@ -146,13 +123,8 @@ function WatchDetail() {
   });
 
   const labelMutation = useMutation({
-    mutationFn: ({
-      watchId,
-      label,
-    }: {
-      watchId: string;
-      label: string;
-    }) => setWatchLabel(watchId, label),
+    mutationFn: ({ watchId, label }: { watchId: string; label: string }) =>
+      setWatchLabel(watchId, label),
 
     onSuccess: async (updatedWatch) => {
       queryClient.setQueryData(["watch", updatedWatch.id], updatedWatch);
@@ -195,15 +167,9 @@ function WatchDetail() {
   if (watchQuery.isError) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <p className="text-sm font-medium">
-          I couldn't load this watch.
-        </p>
+        <p className="text-sm font-medium">I couldn't load this watch.</p>
 
-        <p className="mt-2 text-xs text-muted-foreground">
-          {watchQuery.error instanceof Error
-            ? watchQuery.error.message
-            : "Unknown error"}
-        </p>
+        <p className="mt-2 text-xs text-muted-foreground">Something went wrong. Try again.</p>
 
         <button
           type="button"
@@ -222,9 +188,7 @@ function WatchDetail() {
   if (!watch) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-        <p className="text-sm text-muted-foreground">
-          This watch no longer exists.
-        </p>
+        <p className="text-sm text-muted-foreground">This watch no longer exists.</p>
 
         <button
           type="button"
@@ -237,15 +201,10 @@ function WatchDetail() {
     );
   }
 
-  const frequency =
-    FREQ_LABEL[watch.frequency ?? ""] ??
-    watch.frequency ??
-    "Not set";
+  const frequency = FREQ_LABEL[watch.frequency ?? ""] ?? watch.frequency ?? "Not set";
 
-  const isPageWatch =
-    watch.mode === "page" || watch.element_tag === "page";
-  const isPasteWatch =
-    !watch.selector?.trim() && Boolean(watch.element_text?.trim());
+  const isPageWatch = watch.mode === "page" || watch.element_tag === "page";
+  const isPasteWatch = !watch.selector?.trim() && Boolean(watch.element_text?.trim());
 
   const currentValue = isPageWatch
     ? watch.baseline_pending || !watch.current_value?.trim()
@@ -253,11 +212,7 @@ function WatchDetail() {
       : "Page snapshot active"
     : watch.current_value?.trim() || "No value yet";
 
-  const valueCaption = isPageWatch
-    ? "Whole page"
-    : isPasteWatch
-      ? "Watched text"
-      : "Current value";
+  const valueCaption = isPageWatch ? "Whole page" : isPasteWatch ? "Watched text" : "Current value";
 
   const healthMessage = watchHealthMessage(watch);
   const nextCheck = watchNextCheckLabel(watch);
@@ -335,9 +290,7 @@ function WatchDetail() {
         </button>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs text-muted-foreground">
-            {watch.host ?? "Website"}
-          </p>
+          <p className="truncate text-xs text-muted-foreground">{watch.host ?? "Website"}</p>
 
           {editingName ? (
             <form
@@ -379,9 +332,7 @@ function WatchDetail() {
               onClick={startEditName}
               className="flex max-w-full items-center gap-1.5 text-left"
             >
-              <span className="truncate text-sm font-medium">
-                {watch.label}
-              </span>
+              <span className="truncate text-sm font-medium">{watch.label}</span>
               <Pencil className="h-3 w-3 shrink-0 text-muted-foreground" />
             </button>
           )}
@@ -430,29 +381,13 @@ function WatchDetail() {
 
       <section className="mt-8 px-6">
         <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-          <InfoRow
-            icon={Globe}
-            label="Website"
-            value={watch.host ?? watch.url}
-          />
+          <InfoRow icon={Globe} label="Website" value={watch.host ?? watch.url} />
 
-          <InfoRow
-            icon={Clock}
-            label="Frequency"
-            value={frequency}
-          />
+          <InfoRow icon={Clock} label="Frequency" value={frequency} />
 
-          <InfoRow
-            icon={RefreshCw}
-            label="Status"
-            value={statusLine}
-          />
+          <InfoRow icon={RefreshCw} label="Status" value={statusLine} />
 
-          <InfoRow
-            icon={Clock}
-            label="Next check"
-            value={nextCheck}
-          />
+          <InfoRow icon={Clock} label="Next check" value={nextCheck} />
 
           <InfoRow
             icon={alertsOn ? Bell : BellOff}
@@ -495,9 +430,7 @@ function WatchDetail() {
       </section>
 
       <section className="mt-8 px-6">
-        <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">
-          History
-        </h3>
+        <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">History</h3>
 
         <div className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center">
           <p className="text-sm text-muted-foreground">
@@ -512,11 +445,7 @@ function WatchDetail() {
         labelMutation.isError) && (
         <section className="mt-5 px-6">
           <p className="text-center text-sm text-destructive">
-            {labelMutation.isError
-              ? labelMutation.error instanceof Error
-                ? labelMutation.error.message
-                : "Couldn’t rename watch."
-              : "Something went wrong. Please try again."}
+            Something went wrong. Please try again.
           </p>
         </section>
       )}
@@ -580,26 +509,14 @@ function WatchDetail() {
   );
 }
 
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-}) {
+function InfoRow({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 px-4 py-4">
       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
 
-      <span className="flex-1 text-sm text-muted-foreground">
-        {label}
-      </span>
+      <span className="flex-1 text-sm text-muted-foreground">{label}</span>
 
-      <span className="max-w-[55%] truncate text-right text-sm font-medium">
-        {value}
-      </span>
+      <span className="max-w-[55%] truncate text-right text-sm font-medium">{value}</span>
     </div>
   );
 }

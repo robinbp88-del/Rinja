@@ -7,11 +7,7 @@ import {
   pageFingerprint,
   scoreFetchedHtml,
 } from "./extract";
-import {
-  MonitorError,
-  toMonitorError,
-  type MonitorErrorCode,
-} from "./errors";
+import { MonitorError, toMonitorError, type MonitorErrorCode } from "./errors";
 import { sendImmediateChangeEmail } from "../digest";
 import { sendPushToUser } from "../push.server";
 import type { WatchFrequency, WatchMode } from "../watch-mode";
@@ -85,15 +81,20 @@ function isPageWatch(watch: WatchRow) {
   return watch.mode === "page" || watch.element_tag === "page";
 }
 
-function dedupeKey(
-  watchId: string,
-  oldValue: string | null,
-  newValue: string,
-): string {
+function dedupeKey(watchId: string, oldValue: string | null, newValue: string): string {
   return createHash("sha256")
     .update(`${watchId}|${oldValue ?? ""}|${newValue}`)
     .digest("hex")
     .slice(0, 40);
+}
+
+/** Exported for unit tests. */
+export function notificationDedupeKey(
+  watchId: string,
+  oldValue: string | null,
+  newValue: string,
+): string {
+  return dedupeKey(watchId, oldValue, newValue);
 }
 
 function isMissingRpc(message: string) {
@@ -135,13 +136,11 @@ async function applyResult(
 
   if (error) {
     if (isMissingRpc(error.message)) {
-      console.warn(
-        "apply_watch_check_result unavailable, using legacy write:",
-        error.message,
-      );
+      console.warn("apply_watch_check_result unavailable, using legacy write:", error.message);
       return applyResultLegacy(supabase, args);
     }
-    throw new MonitorError("db", error.message);
+    console.error("apply_watch_check_result failed:", error.message);
+    throw new MonitorError("db", "Could not save check result");
   }
 
   return data as { ok?: boolean; outcome?: string; notified?: boolean };
@@ -167,32 +166,76 @@ async function applyResultLegacy(
   const now = new Date().toISOString();
 
   if (args.outcome === "error") {
+    const { data: row } = await supabase
+      .from("watches")
+      .select("consecutive_failures")
+      .eq("id", args.watchId)
+      .maybeSingle();
+    const fails = (row?.consecutive_failures ?? 0) + 1;
+    const checkStatus =
+      args.errorCode === "http_403" || args.errorCode === "http_429" || args.errorCode === "blocked"
+        ? "blocked"
+        : args.errorCode === "js_shell" ||
+            args.errorCode === "empty_html" ||
+            args.errorCode === "unsupported"
+          ? "unsupported"
+          : "error";
+
     const { error } = await supabase
       .from("watches")
-      .update({ last_checked: now, updated_at: now })
+      .update({
+        last_checked: now,
+        updated_at: now,
+        last_attempted_at: now,
+        check_status: checkStatus,
+        last_error: (args.errorMessage ?? "Check failed").slice(0, 500),
+        last_error_code: args.errorCode ?? "unknown",
+        consecutive_failures: fails,
+        locked_at: null,
+        locked_by: null,
+      })
       .eq("id", args.watchId);
-    if (error) throw new MonitorError("db", error.message);
+    if (error) throw new MonitorError("db", "Could not save check result");
     return { ok: true, outcome: "error", notified: false };
   }
 
   if (args.outcome === "unchanged") {
     const { error } = await supabase
       .from("watches")
-      .update({ last_checked: now, updated_at: now })
+      .update({
+        last_checked: now,
+        last_success_at: now,
+        updated_at: now,
+        check_status: "ok",
+        last_error: null,
+        last_error_code: null,
+        consecutive_failures: 0,
+        locked_at: null,
+        locked_by: null,
+      })
       .eq("id", args.watchId);
-    if (error) throw new MonitorError("db", error.message);
+    if (error) throw new MonitorError("db", "Could not save check result");
     return { ok: true, outcome: "unchanged", notified: false };
   }
 
   const { error } = await supabase
     .from("watches")
     .update({
+      previous_value: args.oldValue ?? undefined,
       current_value: args.newValue ?? null,
       last_checked: now,
+      last_success_at: now,
       updated_at: now,
+      baseline_pending: false,
+      check_status: args.outcome === "baseline" ? "ok" : "changed",
+      last_error: null,
+      last_error_code: null,
+      consecutive_failures: 0,
+      locked_at: null,
+      locked_by: null,
     })
     .eq("id", args.watchId);
-  if (error) throw new MonitorError("db", error.message);
+  if (error) throw new MonitorError("db", "Could not save check result");
 
   let notified = false;
   if (
@@ -202,7 +245,7 @@ async function applyResultLegacy(
     args.body &&
     args.userId
   ) {
-    const { error: notifyErr } = await supabase.from("notifications").insert({
+    const insertRow: Record<string, unknown> = {
       user_id: args.userId,
       watch_id: args.watchId,
       title: args.title,
@@ -210,10 +253,19 @@ async function applyResultLegacy(
       old_value: args.oldValue ?? null,
       new_value: args.newValue ?? null,
       read: false,
-    });
+    };
+    if (args.dedupeKey) insertRow.dedupe_key = args.dedupeKey;
+
+    const { error: notifyErr } = await supabase.from("notifications").insert(insertRow);
     notified = !notifyErr;
     if (notifyErr) {
-      console.warn("Legacy notification insert failed:", notifyErr.message);
+      const isDupe =
+        notifyErr.code === "23505" ||
+        notifyErr.message.toLowerCase().includes("duplicate") ||
+        notifyErr.message.toLowerCase().includes("unique");
+      if (!isDupe) {
+        console.warn("Legacy notification insert failed:", notifyErr.message);
+      }
     }
   }
 
@@ -265,13 +317,10 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
 
     if (pageMode) {
       extracted = pageFingerprint(html);
-      baselineOnly =
-        Boolean(watch.baseline_pending) || !watch.current_value?.trim();
+      baselineOnly = Boolean(watch.baseline_pending) || !watch.current_value?.trim();
     } else if (!hasSelector && hasText) {
       const needle = watch.element_text!.trim();
-      extracted = pageContainsText(html, needle)
-        ? needle
-        : "Not found on page";
+      extracted = pageContainsText(html, needle) ? needle : "Not found on page";
     } else {
       extracted = extractValue(html, watch.selector, watch.element_text);
     }
@@ -301,11 +350,7 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
     }
 
     const compareMode = pageMode ? "page" : watch.mode;
-    const changed = !valuesEqual(
-      watch.current_value,
-      extracted,
-      compareMode,
-    );
+    const changed = !valuesEqual(watch.current_value, extracted, compareMode);
 
     if (!changed) {
       await applyResult(supabase, {
@@ -315,11 +360,7 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
       return { watchId: watch.id, status: "unchanged" };
     }
 
-    const { title, body } = changeSummary(
-      compareMode,
-      watch.current_value,
-      extracted,
-    );
+    const { title, body } = changeSummary(compareMode, watch.current_value, extracted);
 
     const key = dedupeKey(watch.id, watch.current_value, extracted);
     const applied = await applyResult(supabase, {
@@ -346,9 +387,7 @@ export async function checkWatch(watch: WatchRow): Promise<CheckResult> {
       }
 
       try {
-        const { data: authData } = await supabase.auth.admin.getUserById(
-          watch.user_id,
-        );
+        const { data: authData } = await supabase.auth.admin.getUserById(watch.user_id);
         const toEmail = authData.user?.email;
         if (toEmail) {
           await sendImmediateChangeEmail({
@@ -416,10 +455,7 @@ export async function runDueWatchChecks(
 
   if (error) {
     // Fallback if migration not applied yet — keeps local/dev from hard-crashing.
-    console.warn(
-      "claim_due_watches unavailable, falling back to unlocked scan:",
-      error.message,
-    );
+    console.warn("claim_due_watches unavailable, falling back to unlocked scan:", error.message);
     return runDueWatchChecksFallback(limit, options);
   }
 
@@ -465,11 +501,7 @@ async function runDueWatchChecksFallback(
 
   const watches = (data ?? []) as WatchRow[];
   const due = watches
-    .filter((w) =>
-      options?.force
-        ? true
-        : isWatchDue(w.last_checked, w.created_at, w.frequency),
-    )
+    .filter((w) => (options?.force ? true : isWatchDue(w.last_checked, w.created_at, w.frequency)))
     .slice(0, limit);
 
   const results: CheckResult[] = [];
@@ -516,11 +548,7 @@ export async function runDueWatchChecksForUser(
 
   const watches = (data ?? []) as WatchRow[];
   const due = watches
-    .filter((w) =>
-      options?.force
-        ? true
-        : isWatchDue(w.last_checked, w.created_at, w.frequency),
-    )
+    .filter((w) => (options?.force ? true : isWatchDue(w.last_checked, w.created_at, w.frequency)))
     .slice(0, limit);
 
   const results: CheckResult[] = [];
@@ -539,10 +567,7 @@ export async function runDueWatchChecksForUser(
 }
 
 /** Force-check one of the user's watches (e.g. when opening detail). */
-export async function checkWatchForUser(
-  userId: string,
-  watchId: string,
-): Promise<CheckResult> {
+export async function checkWatchForUser(userId: string, watchId: string): Promise<CheckResult> {
   const supabase = createServiceClient();
 
   const { data, error } = await supabase

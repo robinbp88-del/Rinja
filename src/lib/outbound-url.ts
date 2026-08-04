@@ -6,12 +6,15 @@ const BLOCKED_HOSTNAMES = new Set([
   "localhost",
   "metadata.google.internal",
   "metadata.goog",
+  "metadata",
 ]);
 
 export const DEFAULT_TIMEOUT_MS = 12_000;
 export const DEFAULT_MAX_BYTES = 2_000_000; // ~2 MB HTML
+export const DEFAULT_FETCH_RETRIES = 2;
 
-function isPrivateOrReservedIp(ip: string): boolean {
+/** Exported for unit tests. */
+export function isPrivateOrReservedIp(ip: string): boolean {
   const v = isIP(ip);
   if (v === 4) {
     const parts = ip.split(".").map(Number);
@@ -71,10 +74,7 @@ export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
 
   if (isIP(host)) {
     if (isPrivateOrReservedIp(host)) {
-      throw new MonitorError(
-        "ssrf",
-        "Private or reserved IP addresses are not allowed",
-      );
+      throw new MonitorError("ssrf", "Private or reserved IP addresses are not allowed");
     }
   } else {
     let addrs: Array<{ address: string; family: number }>;
@@ -86,10 +86,7 @@ export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
     if (!addrs.length) throw new MonitorError("dns", "Could not resolve host");
     for (const { address } of addrs) {
       if (isPrivateOrReservedIp(address)) {
-        throw new MonitorError(
-          "ssrf",
-          "Host resolves to a private or reserved address",
-        );
+        throw new MonitorError("ssrf", "Host resolves to a private or reserved address");
       }
     }
   }
@@ -99,7 +96,29 @@ export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
 
 export type SafeFetchInit = RequestInit & {
   timeoutMs?: number;
+  /** Extra attempts after the first (default 2 → 3 total). */
+  retries?: number;
 };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableFetchError(error: unknown): boolean {
+  if (error instanceof MonitorError) {
+    return error.code === "timeout" || error.code === "http_429";
+  }
+  if (!(error instanceof Error)) return false;
+  const m = error.message.toLowerCase();
+  return (
+    m.includes("timed out") ||
+    m.includes("aborted") ||
+    m.includes("econnreset") ||
+    m.includes("econnrefused") ||
+    m.includes("socket hang up") ||
+    m.includes("network")
+  );
+}
 
 /** Read response body with a hard byte cap. */
 export async function readResponseTextLimited(
@@ -138,15 +157,13 @@ export async function readResponseTextLimited(
   return new TextDecoder("utf-8").decode(merged);
 }
 
-/** Fetch with manual redirects; re-validate every hop; abort on timeout. */
-export async function fetchSafeOutbound(
+async function fetchSafeOutboundOnce(
   raw: string,
-  init?: SafeFetchInit,
-  maxRedirects = 5,
+  init: RequestInit | undefined,
+  timeoutMs: number,
+  maxRedirects: number,
 ): Promise<{ response: Response; finalUrl: string }> {
   let current = await assertSafeOutboundUrl(raw);
-  const timeoutMs = init?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const { timeoutMs: _ignored, ...fetchInit } = init ?? {};
 
   for (let i = 0; i <= maxRedirects; i++) {
     const controller = new AbortController();
@@ -154,16 +171,15 @@ export async function fetchSafeOutbound(
 
     try {
       const response = await fetch(current.href, {
-        ...fetchInit,
-        signal: fetchInit.signal ?? controller.signal,
+        ...init,
+        signal: init?.signal ?? controller.signal,
         redirect: "manual",
         headers: {
           "user-agent":
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-          accept:
-            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
           "accept-language": "en-US,en;q=0.9",
-          ...(fetchInit.headers ?? {}),
+          ...(init?.headers ?? {}),
         },
       });
 
@@ -172,6 +188,10 @@ export async function fetchSafeOutbound(
         if (!location) throw new Error("Redirect without Location header");
         current = await assertSafeOutboundUrl(new URL(location, current).href);
         continue;
+      }
+
+      if (response.status === 429) {
+        throw new MonitorError("http_429", "HTTP 429");
       }
 
       return { response, finalUrl: current.href };
@@ -187,4 +207,32 @@ export async function fetchSafeOutbound(
   }
 
   throw new MonitorError("unknown", "Too many redirects");
+}
+
+/** Fetch with manual redirects; re-validate every hop; abort on timeout; limited retry. */
+export async function fetchSafeOutbound(
+  raw: string,
+  init?: SafeFetchInit,
+  maxRedirects = 5,
+): Promise<{ response: Response; finalUrl: string }> {
+  const timeoutMs = init?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const retries = init?.retries ?? DEFAULT_FETCH_RETRIES;
+  const { timeoutMs: _t, retries: _r, ...fetchInit } = init ?? {};
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetchSafeOutboundOnce(raw, fetchInit, timeoutMs, maxRedirects);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= retries || !isRetryableFetchError(error)) {
+        throw error;
+      }
+      const backoff = 400 * 2 ** attempt + Math.floor(Math.random() * 200);
+      console.warn(`Outbound fetch retry ${attempt + 1}/${retries} after ${backoff}ms`);
+      await sleep(backoff);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new MonitorError("unknown", "Fetch failed");
 }

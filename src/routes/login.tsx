@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import { signIn, signUp } from "../lib/auth";
+import { toUserError } from "../lib/user-errors";
 import { RinjaMascot } from "../components/RinjaMascot";
 
 export const Route = createFileRoute("/login")({
@@ -37,7 +38,7 @@ function Login() {
 
       navigate({ to: "/home", replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(toUserError(err, "Something went wrong"));
     } finally {
       setLoading(false);
     }
@@ -149,9 +150,7 @@ function Login() {
                     className="h-12 w-full rounded-2xl border border-border bg-card/80 px-4 pr-12 text-[15px] outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                     placeholder="••••••••"
                     type={showPassword ? "text" : "password"}
-                    autoComplete={
-                      registerMode ? "new-password" : "current-password"
-                    }
+                    autoComplete={registerMode ? "new-password" : "current-password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyDown={(e) => {
@@ -167,11 +166,7 @@ function Login() {
                     onClick={() => setShowPassword((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition hover:text-foreground"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </label>
@@ -210,9 +205,7 @@ function Login() {
                 }}
                 className="h-11 text-[13px] text-muted-foreground transition hover:text-foreground"
               >
-                {registerMode
-                  ? "Already have an account? Sign in"
-                  : "New here? Create an account"}
+                {registerMode ? "Already have an account? Sign in" : "New here? Create an account"}
               </button>
             </div>
           </>

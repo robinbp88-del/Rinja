@@ -28,8 +28,7 @@ export class MonitorError extends Error {
 export function toMonitorError(error: unknown): MonitorError {
   if (error instanceof MonitorError) return error;
 
-  const message =
-    error instanceof Error ? error.message : "Check failed";
+  const message = error instanceof Error ? error.message : "Check failed";
   const lower = message.toLowerCase();
 
   if (lower.includes("timed out") || lower.includes("aborted")) {
@@ -45,11 +44,7 @@ export function toMonitorError(error: unknown): MonitorError {
   ) {
     return new MonitorError("dns", message);
   }
-  if (
-    lower.includes("not allowed") ||
-    lower.includes("private") ||
-    lower.includes("reserved")
-  ) {
+  if (lower.includes("not allowed") || lower.includes("private") || lower.includes("reserved")) {
     return new MonitorError("ssrf", message);
   }
 
@@ -94,8 +89,8 @@ export function userFacingError(code: MonitorErrorCode, message: string): string
     case "ssrf":
       return "That URL isn’t allowed.";
     case "db":
-      return "Database error while saving the check.";
+      return "Couldn’t save the check result.";
     default:
-      return message || "Check failed.";
+      return "Check failed. Try again later.";
   }
 }

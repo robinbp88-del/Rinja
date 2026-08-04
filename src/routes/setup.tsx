@@ -1,17 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  ArrowLeft,
-  ClipboardPaste,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
+import { ArrowLeft, ClipboardPaste, ExternalLink, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { requireAuth } from "../lib/requireAuth";
 import { hostFromUrl } from "../lib/store";
 import { htmlContainsVisibleText } from "../lib/text-presence";
 import { createWatch } from "../lib/watches";
 import { createStartedNotification } from "../lib/notifications";
+import { createProxyTicket } from "../lib/proxy-ticket.functions";
+import { buildProxyUrl } from "../lib/proxy-url";
+import { toUserError } from "../lib/user-errors";
+import { supabase } from "../lib/supabase";
 
 const searchSchema = z.object({
   url: z.string().url(),
@@ -25,16 +24,7 @@ export const Route = createFileRoute("/setup")({
 });
 
 function errorMessage(err: unknown, fallback = "Could not create watch") {
-  if (err instanceof Error && err.message) return err.message;
-  if (
-    err &&
-    typeof err === "object" &&
-    "message" in err &&
-    typeof (err as { message: unknown }).message === "string"
-  ) {
-    return (err as { message: string }).message;
-  }
-  return fallback;
+  return toUserError(err, fallback);
 }
 
 function SetupWatch() {
@@ -101,8 +91,7 @@ function SetupWatch() {
   };
 
   const createPasteWatch = async (text: string) => {
-    const label =
-      text.length > 42 ? `Text · ${text.slice(0, 40)}…` : `Text · ${text}`;
+    const label = text.length > 42 ? `Text · ${text.slice(0, 40)}…` : `Text · ${text}`;
 
     const created = await createWatch({
       url,
@@ -143,19 +132,27 @@ function SetupWatch() {
       if (!opts?.force && !presenceWarning) {
         setChecking(true);
         try {
-          const res = await fetch(
-            `/api/proxy?url=${encodeURIComponent(url)}`,
-            { headers: { Accept: "text/html" } },
-          );
-          if (res.ok) {
-            const html = await res.text();
-            if (!htmlContainsVisibleText(html, text)) {
-              setPresenceWarning(
-                "I couldn’t find that exact text on the page yet. Check the copy, or start watching anyway.",
-              );
-              setLoading(false);
-              setChecking(false);
-              return;
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            const { ticket } = await createProxyTicket({
+              data: { accessToken: token },
+            });
+            const res = await fetch(buildProxyUrl(url, ticket), {
+              headers: { Accept: "text/html" },
+            });
+            if (res.ok) {
+              const html = await res.text();
+              if (!htmlContainsVisibleText(html, text)) {
+                setPresenceWarning(
+                  "I couldn’t find that exact text on the page yet. Check the copy, or start watching anyway.",
+                );
+                setLoading(false);
+                setChecking(false);
+                return;
+              }
             }
           }
         } catch {
@@ -187,15 +184,11 @@ function SetupWatch() {
 
       {intent === "page" ? (
         <>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-            Step 2 of 2
-          </p>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight">
-            Any change on the page
-          </h1>
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Step 2 of 2</p>
+          <h1 className="mt-2 text-[28px] font-semibold tracking-tight">Any change on the page</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            I&apos;ll check {host} regularly and alert you if the page content
-            changes — no highlight needed.
+            I&apos;ll check {host} regularly and alert you if the page content changes — no
+            highlight needed.
           </p>
 
           <div className="mt-6 rounded-2xl border border-border bg-card/50 px-4 py-3 text-[13px] text-muted-foreground">
@@ -203,9 +196,7 @@ function SetupWatch() {
             <p className="mt-1 break-all opacity-80">{url}</p>
           </div>
 
-          {error ? (
-            <p className="mt-4 text-sm text-destructive">{error}</p>
-          ) : null}
+          {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
           <div className="mt-auto flex flex-col gap-2 pb-8">
             <button
@@ -227,15 +218,11 @@ function SetupWatch() {
         </>
       ) : (
         <>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-            Step 2 of 2
-          </p>
-          <h1 className="mt-2 text-[28px] font-semibold tracking-tight">
-            Paste the text to watch
-          </h1>
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Step 2 of 2</p>
+          <h1 className="mt-2 text-[28px] font-semibold tracking-tight">Paste the text to watch</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            On the site, copy the exact words you care about. Paste them here —
-            I&apos;ll alert you if they leave the page.
+            On the site, copy the exact words you care about. Paste them here — I&apos;ll alert you
+            if they leave the page.
           </p>
 
           <div className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/50 px-4 py-3">
@@ -301,9 +288,7 @@ function SetupWatch() {
             </div>
           ) : null}
 
-          {error ? (
-            <p className="mt-4 text-sm text-destructive">{error}</p>
-          ) : null}
+          {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
 
           <div className="mt-auto flex flex-col gap-2 pb-8 pt-6">
             <button

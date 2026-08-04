@@ -34,8 +34,7 @@ function Notifications() {
   const hasAlerts = notifications.length > 0;
   // Headline follows the newest alert — old change cards keep their glow,
   // but shouldn't keep saying "Something changed" forever.
-  const latestIsChange =
-    hasAlerts && isChangeAlert(notifications[0]!);
+  const latestIsChange = hasAlerts && isChangeAlert(notifications[0]!);
   const hasChangeCards = notifications.some(isChangeAlert);
 
   // Mark read when leaving Alerts — keeps in-app badge and home-icon badge
@@ -46,10 +45,7 @@ function Notifications() {
     return () => {
       void markAllNotificationsRead()
         .then(async () => {
-          queryClient.setQueryData(
-            ["notifications", "unread", user.id],
-            0,
-          );
+          queryClient.setQueryData(["notifications", "unread", user.id], 0);
           await queryClient.invalidateQueries({
             queryKey: ["notifications"],
           });
@@ -84,18 +80,12 @@ function Notifications() {
 
       <div className="mt-6 px-6">
         {notificationsQuery.isLoading ? (
-          <p className="text-center text-[13px] text-muted-foreground">
-            Loading alerts…
-          </p>
+          <p className="text-center text-[13px] text-muted-foreground">Loading alerts…</p>
         ) : notificationsQuery.isError ? (
           <div className="rounded-3xl border border-destructive/30 bg-destructive/10 p-6 text-center">
-            <p className="text-[14px] font-medium text-destructive">
-              Couldn’t load alerts
-            </p>
+            <p className="text-[14px] font-medium text-destructive">Couldn’t load alerts</p>
             <p className="mt-2 text-[13px] text-muted-foreground">
-              {notificationsQuery.error instanceof Error
-                ? notificationsQuery.error.message
-                : "Something went wrong. Try again."}
+              Something went wrong. Try again.
             </p>
             <button
               type="button"
@@ -130,9 +120,7 @@ function Notifications() {
                       })}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {item.body}
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.body}</p>
                   {item.watch_id && (
                     <Link
                       to="/watch/$id"
@@ -150,8 +138,8 @@ function Notifications() {
           <div className="rounded-3xl border border-dashed border-border bg-card/40 p-6 text-center">
             <p className="text-[14px] font-medium">No alerts yet</p>
             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-              When watched HTML text changes, it shows up here. Paste a URL on
-              Home and highlight a price, stock line, or headline.
+              When watched HTML text changes, it shows up here. Paste a URL on Home and highlight a
+              price, stock line, or headline.
             </p>
             <Link
               to="/add"

@@ -1,11 +1,11 @@
 import type { User } from "@supabase/supabase-js";
 
-/** Comma-separated admin emails from server env (preferred) or Vite env. */
+/**
+ * Comma-separated admin emails — server env only.
+ * Do not use VITE_ADMIN_EMAILS (ships into the client bundle).
+ */
 export function adminEmailAllowlist(): string[] {
-  const raw =
-    process.env.ADMIN_EMAILS ??
-    process.env.VITE_ADMIN_EMAILS ??
-    "";
+  const raw = process.env.ADMIN_EMAILS ?? "";
   return raw
     .split(",")
     .map((e) => e.trim().toLowerCase())

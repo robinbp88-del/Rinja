@@ -7,10 +7,7 @@
  */
 
 export function badgeSupported(): boolean {
-  return (
-    typeof navigator !== "undefined" &&
-    typeof navigator.setAppBadge === "function"
-  );
+  return typeof navigator !== "undefined" && typeof navigator.setAppBadge === "function";
 }
 
 async function syncAndroidNotificationBadge(count: number): Promise<void> {
@@ -27,18 +24,16 @@ async function syncAndroidNotificationBadge(count: number): Promise<void> {
       return;
     }
 
-    await reg.showNotification(
-      count === 1 ? "Rinja · 1 alert" : `Rinja · ${count} alerts`,
-      {
-        tag: "rinja-unread-badge",
-        body: "Open Alerts to take a look.",
-        icon: "/icons/icon-192.png",
-        badge: "/icons/icon-192.png",
-        renotify: false,
-        silent: true,
-        data: { url: "/notifications" },
-      },
-    );
+    await reg.showNotification(count === 1 ? "Rinja · 1 alert" : `Rinja · ${count} alerts`, {
+      tag: "rinja-unread-badge",
+      body: "Open Alerts to take a look.",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      silent: true,
+      data: { url: "/notifications" },
+      // Chromium: keep badge quiet when count updates.
+      renotify: false,
+    } as NotificationOptions);
   } catch {
     // ignore
   }

@@ -1,8 +1,5 @@
 import { requireUser } from "./auth";
-import {
-  userFacingError,
-  type MonitorErrorCode,
-} from "./monitoring/errors";
+import { userFacingError, type MonitorErrorCode } from "./monitoring/errors";
 import { supabase } from "./supabase";
 import type { WatchFrequency, WatchMode } from "./watch-mode";
 
@@ -63,9 +60,7 @@ export type DatabaseWatch = {
   baseline_pending?: boolean | null;
 };
 
-export async function createWatch(
-  input: CreateWatchInput,
-): Promise<DatabaseWatch> {
+export async function createWatch(input: CreateWatchInput): Promise<DatabaseWatch> {
   const user = await requireUser();
 
   const { data, error } = await supabase
@@ -92,10 +87,8 @@ export async function createWatch(
     .single();
 
   if (error) {
-    throw new Error(
-      [error.message, error.details, error.hint].filter(Boolean).join(" — ") ||
-        "Could not create watch",
-    );
+    console.error("createWatch failed:", error.message, error.code);
+    throw new Error("Could not create watch. Please try again.");
   }
 
   return data as DatabaseWatch;
@@ -128,12 +121,8 @@ export function watchBadgeLabel(watch: DatabaseWatch): string {
   if (watch.paused) return "Paused";
 
   const status = watch.check_status ?? null;
-  if (
-    status === "error" ||
-    status === "blocked" ||
-    status === "unsupported"
-  ) {
-    return "Issue";
+  if (status === "error" || status === "blocked" || status === "unsupported") {
+    return (watch.consecutive_failures ?? 0) >= 3 ? "Unstable" : "Issue";
   }
 
   if (
@@ -155,21 +144,14 @@ export function watchStatusLine(watch: DatabaseWatch): string {
   if (watch.paused) return "Paused";
 
   const status = watch.check_status ?? null;
-  if (
-    status === "error" ||
-    status === "blocked" ||
-    status === "unsupported"
-  ) {
+  if (status === "error" || status === "blocked" || status === "unsupported") {
     const code = (watch.last_error_code ?? "unknown") as MonitorErrorCode;
     const base = userFacingError(code, watch.last_error ?? "Check failed");
     const fails = watch.consecutive_failures ?? 0;
     return fails > 1 ? `${base} (${fails} fails)` : base;
   }
 
-  if (
-    watch.baseline_pending ||
-    (isPageWatchRow(watch) && !watch.current_value?.trim())
-  ) {
+  if (watch.baseline_pending || (isPageWatchRow(watch) && !watch.current_value?.trim())) {
     return "Baseline pending — first check soon";
   }
 
@@ -179,9 +161,7 @@ export function watchStatusLine(watch: DatabaseWatch): string {
 
   if (isPasteWatchRow(watch)) {
     if (watch.current_value === "Not found on page") {
-      return status === "changed"
-        ? "Changed — text missing on page"
-        : "Text missing on page";
+      return status === "changed" ? "Changed — text missing on page" : "Text missing on page";
     }
     const snippet = watch.element_text!.trim().slice(0, 36);
     const watching = `Watching “${snippet}${watch.element_text!.trim().length > 36 ? "…" : ""}”`;
@@ -228,20 +208,14 @@ export function watchNextCheckLabel(watch: DatabaseWatch): string {
 export function watchHealthMessage(watch: DatabaseWatch): string | null {
   if (watch.paused) return null;
   const status = watch.check_status;
-  if (
-    status !== "error" &&
-    status !== "blocked" &&
-    status !== "unsupported"
-  ) {
+  if (status !== "error" && status !== "blocked" && status !== "unsupported") {
     return null;
   }
   const code = (watch.last_error_code ?? "unknown") as MonitorErrorCode;
   return userFacingError(code, watch.last_error ?? "Check failed");
 }
 
-export async function getWatchById(
-  id: string,
-): Promise<DatabaseWatch | null> {
+export async function getWatchById(id: string): Promise<DatabaseWatch | null> {
   const user = await requireUser();
 
   const { data, error } = await supabase
@@ -288,10 +262,7 @@ export async function updateWatchSelection(
   return data as DatabaseWatch;
 }
 
-export async function setWatchLabel(
-  id: string,
-  label: string,
-): Promise<DatabaseWatch> {
+export async function setWatchLabel(id: string, label: string): Promise<DatabaseWatch> {
   const user = await requireUser();
   const trimmed = label.replace(/\s+/g, " ").trim();
   if (!trimmed) throw new Error("Name can’t be empty");
@@ -312,10 +283,7 @@ export async function setWatchLabel(
   return data as DatabaseWatch;
 }
 
-export async function setWatchNotify(
-  id: string,
-  notify: boolean,
-): Promise<DatabaseWatch> {
+export async function setWatchNotify(id: string, notify: boolean): Promise<DatabaseWatch> {
   const user = await requireUser();
 
   const { data, error } = await supabase
@@ -334,10 +302,7 @@ export async function setWatchNotify(
   return data as DatabaseWatch;
 }
 
-export async function setWatchPaused(
-  id: string,
-  paused: boolean,
-): Promise<DatabaseWatch> {
+export async function setWatchPaused(id: string, paused: boolean): Promise<DatabaseWatch> {
   const user = await requireUser();
 
   const { data, error } = await supabase
@@ -359,11 +324,7 @@ export async function setWatchPaused(
 export async function deleteWatch(id: string): Promise<void> {
   const user = await requireUser();
 
-  const { error } = await supabase
-    .from("watches")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const { error } = await supabase.from("watches").delete().eq("id", id).eq("user_id", user.id);
 
   if (error) throw error;
 }

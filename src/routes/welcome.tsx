@@ -4,6 +4,7 @@ import { Apple, Loader2, Mail } from "lucide-react";
 
 import { RinjaMascot } from "../components/RinjaMascot";
 import { signInWithGoogle } from "../lib/auth";
+import { toUserError } from "../lib/user-errors";
 import { useAuth } from "../providers/AuthProvider";
 
 export const Route = createFileRoute("/welcome")({
@@ -34,9 +35,8 @@ function Welcome() {
       await signInWithGoogle();
       // Browser redirects to Google — no further action here.
     } catch (error) {
-      setGoogleError(
-        error instanceof Error ? error.message : "Google sign-in failed.",
-      );
+      console.error("Google sign-in failed:", error);
+      setGoogleError(toUserError(error, "Google sign-in failed."));
       setGoogleBusy(false);
     }
   };
@@ -53,17 +53,8 @@ function Welcome() {
       />
 
       <div className="flex flex-col items-center text-center pt-4">
-        <RinjaMascot
-          variant="hero"
-          mood="neutral"
-          size={168}
-          className="mb-8"
-          priority
-          flat
-        />
-        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-primary">
-          Rinja
-        </p>
+        <RinjaMascot variant="hero" mood="neutral" size={168} className="mb-8" priority flat />
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-primary">Rinja</p>
         <h1 className="mt-3 text-[38px] font-semibold leading-[1.08] tracking-tight">
           Never miss
           <br />

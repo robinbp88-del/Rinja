@@ -30,14 +30,14 @@ import {
   labelFor,
   type ElementKind,
 } from "../lib/highlight-detect";
-import {
-  createWatch,
-  getWatchById,
-  updateWatchSelection,
-} from "../lib/watches";
+import { createWatch, getWatchById, updateWatchSelection } from "../lib/watches";
 import { createStartedNotification } from "../lib/notifications";
 import { requireAuth } from "../lib/requireAuth";
-import rinja from "../assets/rinja.png";
+import { createProxyTicket } from "../lib/proxy-ticket.functions";
+import { buildProxyUrl } from "../lib/proxy-url";
+import { toUserError } from "../lib/user-errors";
+import { supabase } from "../lib/supabase";
+import rinja from "../assets/rinja.webp";
 
 const searchSchema = z.object({
   url: z.string().url(),
@@ -54,11 +54,7 @@ export const Route = createFileRoute("/highlight")({
 type SaveState = "idle" | "saving" | "done";
 
 function Highlight() {
-  const {
-    url,
-    selector: searchSelector,
-    watchId,
-  } = Route.useSearch();
+  const { url, selector: searchSelector, watchId } = Route.useSearch();
 
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -72,11 +68,45 @@ function Highlight() {
   const [mode, setMode] = useState<WatchMode>("any");
   const [notify, setNotify] = useState(true);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [resolvedSelector, setResolvedSelector] = useState(
-    searchSelector ?? "",
-  );
+  const [resolvedSelector, setResolvedSelector] = useState(searchSelector ?? "");
+  const [proxySrc, setProxySrc] = useState<string | null>(null);
+  const [proxyError, setProxyError] = useState<string | null>(null);
 
   const host = hostFromUrl(url);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+          if (!cancelled) {
+            setProxyError("Please sign in again to preview pages.");
+          }
+          return;
+        }
+        const { ticket } = await createProxyTicket({
+          data: { accessToken: token },
+        });
+        if (cancelled) return;
+        setProxySrc(buildProxyUrl(url, ticket));
+        setProxyError(null);
+      } catch (error) {
+        console.error("Could not mint proxy ticket:", error);
+        if (!cancelled) {
+          setProxyError("Could not load page preview. Please try again.");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
 
   useEffect(() => {
     if (searchSelector) {
@@ -146,10 +176,7 @@ function Highlight() {
       }
 
       if (message.type === "reveal-missing") {
-        console.warn(
-          "Saved element could not be found:",
-          message.payload?.selector,
-        );
+        console.warn("Saved element could not be found:", message.payload?.selector);
       }
     };
 
@@ -161,11 +188,7 @@ function Highlight() {
   }, []);
 
   useEffect(() => {
-    if (
-      !ready ||
-      !resolvedSelector ||
-      !iframeRef.current?.contentWindow
-    ) {
+    if (!ready || !resolvedSelector || !iframeRef.current?.contentWindow) {
       return;
     }
 
@@ -186,10 +209,7 @@ function Highlight() {
     };
   }, [ready, resolvedSelector]);
 
-  const post = (
-    type: "enable" | "disable" | "clear" | "mark",
-    extra?: Record<string, unknown>,
-  ) => {
+  const post = (type: "enable" | "disable" | "clear" | "mark", extra?: Record<string, unknown>) => {
     postToPicker(iframeRef.current?.contentWindow, type, extra);
   };
 
@@ -295,13 +315,7 @@ function Highlight() {
     } catch (error) {
       console.error("Could not save watch:", error);
       setSaveState("idle");
-
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Could not save the watch.";
-
-      window.alert(message);
+      window.alert(toUserError(error, "Could not save the watch."));
     }
   };
 
@@ -320,7 +334,7 @@ function Highlight() {
     });
   };
 
-  const src = `/api/proxy?url=${encodeURIComponent(url)}`;
+  const src = proxySrc;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -357,26 +371,32 @@ function Highlight() {
       </div>
 
       <div className="relative flex-1">
-        {!ready && (
+        {proxyError ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-sm text-muted-foreground">{proxyError}</p>
+          </div>
+        ) : null}
+
+        {!ready && !proxyError && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <p className="text-xs text-muted-foreground">
-              Loading {host}…
-            </p>
+            <p className="text-xs text-muted-foreground">Loading {host}…</p>
           </div>
         )}
 
-        <iframe
-          ref={iframeRef}
-          src={src}
-          title={`Preview of ${host}`}
-          sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
-          className="h-[calc(100vh-64px)] w-full border-0 bg-white"
-          onLoad={() => {
-            // Fallback if picker postMessage is delayed/blocked.
-            setReady(true);
-          }}
-        />
+        {src ? (
+          <iframe
+            ref={iframeRef}
+            src={src}
+            title={`Preview of ${host}`}
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            className="h-[calc(100vh-64px)] w-full border-0 bg-white"
+            onLoad={() => {
+              // Fallback if picker postMessage is delayed/blocked.
+              setReady(true);
+            }}
+          />
+        ) : null}
       </div>
 
       {!picking && !selection && (
@@ -414,10 +434,7 @@ function Highlight() {
             onClick={enablePicking}
             className="pointer-events-auto flex h-14 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-2xl shadow-primary/40 glow-ring transition active:scale-95"
           >
-            <MousePointerClick
-              className="h-5 w-5"
-              strokeWidth={2.6}
-            />
+            <MousePointerClick className="h-5 w-5" strokeWidth={2.6} />
             {watchId ? "Change selection" : "Highlight"}
           </button>
         </div>
@@ -446,11 +463,7 @@ function Highlight() {
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md px-3 pb-3 screen-safe">
             <div className="rounded-[28px] border border-border bg-card/98 p-5 shadow-2xl backdrop-blur-2xl animate-scale-in">
               <div className="flex items-start gap-3">
-                <img
-                  src={rinja}
-                  alt=""
-                  className="h-14 w-14 flex-shrink-0 object-contain"
-                />
+                <img src={rinja} alt="" className="h-14 w-14 flex-shrink-0 object-contain" />
 
                 <div className="flex-1 pt-1">
                   <p className="text-[11px] uppercase tracking-widest text-primary">
@@ -458,9 +471,7 @@ function Highlight() {
                   </p>
 
                   <h3 className="mt-1 text-[19px] font-semibold leading-snug tracking-tight">
-                    {watchId
-                      ? "Update what I should watch?"
-                      : "Should I keep an eye on this?"}
+                    {watchId ? "Update what I should watch?" : "Should I keep an eye on this?"}
                   </h3>
                 </div>
               </div>
@@ -471,9 +482,7 @@ function Highlight() {
                 ) : (
                   <p className="truncate text-[15px] font-medium">
                     {selection.text?.trim() || (
-                      <span className="text-muted-foreground">
-                        {selection.tag}
-                      </span>
+                      <span className="text-muted-foreground">{selection.tag}</span>
                     )}
                   </p>
                 )}
@@ -495,10 +504,7 @@ function Highlight() {
                           : "border-border bg-background/40 text-foreground/80 hover:bg-background/70"
                       }`}
                     >
-                      <option.icon
-                        className="h-3.5 w-3.5"
-                        strokeWidth={2.4}
-                      />
+                      <option.icon className="h-3.5 w-3.5" strokeWidth={2.4} />
                       {option.label}
                     </button>
                   );
@@ -510,9 +516,7 @@ function Highlight() {
                 disabled={saveState !== "idle"}
                 onClick={() => setNotify((value) => !value)}
                 className={`mt-4 flex h-12 w-full items-center gap-3 rounded-2xl border px-4 text-left transition ${
-                  notify
-                    ? "border-primary/40 bg-primary/10"
-                    : "border-border bg-background/40"
+                  notify ? "border-primary/40 bg-primary/10" : "border-border bg-background/40"
                 }`}
               >
                 {notify ? (
@@ -542,8 +546,7 @@ function Highlight() {
                     : "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                 }`}
               >
-                {saveState === "idle" &&
-                  (watchId ? "Update watch" : "Yes")}
+                {saveState === "idle" && (watchId ? "Update watch" : "Yes")}
 
                 {saveState === "saving" && (
                   <>
@@ -568,16 +571,10 @@ function Highlight() {
 }
 
 function ImagePreview({ html }: { html: string }) {
-  const src = html.match(
-    /<img[^>]+src=["']([^"']+)["']/i,
-  )?.[1];
+  const src = html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1];
 
   if (!src) {
-    return (
-      <p className="text-[13px] text-muted-foreground">
-        Image element
-      </p>
-    );
+    return <p className="text-[13px] text-muted-foreground">Image element</p>;
   }
 
   return (
@@ -590,9 +587,7 @@ function ImagePreview({ html }: { html: string }) {
           event.currentTarget.style.display = "none";
         }}
       />
-      <p className="truncate text-[13px] text-muted-foreground">
-        Image
-      </p>
+      <p className="truncate text-[13px] text-muted-foreground">Image</p>
     </div>
   );
 }

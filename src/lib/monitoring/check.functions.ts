@@ -1,11 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import {
-  checkWatchForUser,
-  runDueWatchChecksForUser,
-  type MonitorRunSummary,
-} from "./engine";
+import { checkWatchForUser, runDueWatchChecksForUser, type MonitorRunSummary } from "./engine";
 
 const TokenSchema = z.object({
   accessToken: z.string().min(20),
@@ -16,8 +12,7 @@ const OneWatchSchema = TokenSchema.extend({
 });
 
 async function userIdFromToken(accessToken: string): Promise<string> {
-  const supabaseUrl =
-    process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !anonKey) {
     throw new Error("Missing Supabase config");

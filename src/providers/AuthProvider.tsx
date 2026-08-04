@@ -1,12 +1,7 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import { touchUserActivity } from "../lib/activity";
+import { toUserError } from "../lib/user-errors";
 import { supabase } from "../lib/supabase";
 
 type AuthContextType = {
@@ -35,7 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ data, error: sessionError }) => {
         if (cancelled) return;
         if (sessionError) {
-          setError(sessionError.message);
+          console.error("Auth session error:", sessionError.message);
+          setError(toUserError(sessionError, "Could not restore session."));
           setUser(null);
         } else {
           setError(null);
@@ -47,7 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Auth failed");
+        console.error("Auth init failed:", err);
+        setError(toUserError(err, "Auth failed"));
         setUser(null);
       })
       .finally(() => {
@@ -65,9 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const activityTimer = window.setInterval(() => {
-      void touchUserActivity();
-    }, 10 * 60 * 1000);
+    const activityTimer = window.setInterval(
+      () => {
+        void touchUserActivity();
+      },
+      10 * 60 * 1000,
+    );
 
     return () => {
       cancelled = true;
@@ -76,11 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, loading, error }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={{ user, loading, error }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
