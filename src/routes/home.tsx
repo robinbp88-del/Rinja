@@ -1,25 +1,14 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowUp,
-  ChevronRight,
-  Bell,
-  Loader2,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { ArrowUp, ChevronRight, Bell, Loader2, RefreshCw, X } from "lucide-react";
 
 import { BottomNav } from "../components/BottomNav";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { BetaBadge } from "../components/BetaChrome";
 import { RinjaMascot } from "../components/RinjaMascot";
 import { watchConditionLabel } from "../lib/watch-labels";
-import {
-  deleteWatch,
-  getWatches,
-  watchStatusLine,
-  type DatabaseWatch,
-} from "../lib/watches";
+import { deleteWatch, getWatches, watchStatusLine, type DatabaseWatch } from "../lib/watches";
 import { checkMyDueWatches } from "../lib/monitoring/check.functions";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
@@ -27,7 +16,7 @@ import { requireAuth } from "../lib/requireAuth";
 import { supabase } from "../lib/supabase";
 import { normalizeWatchUrl } from "../lib/url-input";
 import { logSearchEvent } from "../lib/activity";
-import binoculars from "../assets/binoculars.png";
+import binoculars from "../assets/binoculars.webp";
 
 export const Route = createFileRoute("/home")({
   beforeLoad: requireAuth,
@@ -37,15 +26,11 @@ export const Route = createFileRoute("/home")({
 function timeAgo(value: string | number | null | undefined) {
   if (!value) return "not checked yet";
 
-  const timestamp =
-    typeof value === "number" ? value : new Date(value).getTime();
+  const timestamp = typeof value === "number" ? value : new Date(value).getTime();
 
   if (Number.isNaN(timestamp)) return "recently";
 
-  const seconds = Math.max(
-    1,
-    Math.floor((Date.now() - timestamp) / 1000),
-  );
+  const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
 
   if (seconds < 60) return `${seconds}s ago`;
 
@@ -70,9 +55,7 @@ function Home() {
 
   const [query, setQuery] = useState("");
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [watchToRemove, setWatchToRemove] = useState<DatabaseWatch | null>(
-    null,
-  );
+  const [watchToRemove, setWatchToRemove] = useState<DatabaseWatch | null>(null);
 
   const watchesQuery = useQuery({
     queryKey: ["watches", authUser?.id],
@@ -135,10 +118,7 @@ function Home() {
   const watches = watchesQuery.data ?? [];
   const unreadAlerts = alertsQuery.data ?? 0;
 
-  const displayName =
-    authUser?.user_metadata?.name ??
-    authUser?.email?.split("@")[0] ??
-    "You";
+  const displayName = authUser?.user_metadata?.name ?? authUser?.email?.split("@")[0] ?? "You";
 
   const profileInitial = displayName.charAt(0).toUpperCase();
 
@@ -188,12 +168,15 @@ function Home() {
       </header>
 
       <section className="mt-10 px-6">
+        <div className="mb-2">
+          <BetaBadge />
+        </div>
         <h1 className="text-[36px] font-semibold leading-[1.1] tracking-tight">
           What should I keep an eye on?
         </h1>
         <p className="mt-3 text-[14px] leading-snug text-muted-foreground">
-          Paste a URL, highlight the text that matters, and I&apos;ll alert you
-          when that HTML text changes. Live JS counters may not work.
+          Paste a URL, highlight the text that matters, and I&apos;ll alert you when that HTML text
+          changes. Live JS counters may not work.
         </p>
       </section>
 
@@ -230,9 +213,7 @@ function Home() {
             aria-label="Send"
             disabled={!hasQuery}
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-300 active:scale-95 ${
-              hasQuery
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
+              hasQuery ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
             }`}
           >
             <ArrowUp className="h-4 w-4" strokeWidth={2.6} />
@@ -240,8 +221,7 @@ function Home() {
         </div>
 
         <p className="mt-4 text-[12px] text-muted-foreground">
-          Paste the full page URL (product, listing, article) — not just the
-          site home page.
+          Paste the full page URL (product, listing, article) — not just the site home page.
         </p>
       </section>
 
@@ -270,11 +250,7 @@ function Home() {
               aria-label="Refresh watches"
               className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-card hover:text-primary disabled:opacity-50"
             >
-              <RefreshCw
-                className={`h-4 w-4 ${
-                  watchesQuery.isFetching ? "animate-spin" : ""
-                }`}
-              />
+              <RefreshCw className={`h-4 w-4 ${watchesQuery.isFetching ? "animate-spin" : ""}`} />
             </button>
           </div>
         </div>
@@ -288,9 +264,7 @@ function Home() {
           </div>
         ) : watchesQuery.isError ? (
           <div className="mt-6 rounded-3xl border border-destructive/40 bg-destructive/10 p-6 text-center">
-            <p className="text-sm font-medium">
-              I couldn't load your watches.
-            </p>
+            <p className="text-sm font-medium">I couldn't load your watches.</p>
 
             <button
               type="button"
@@ -314,8 +288,8 @@ function Home() {
             <p className="mt-4 text-[15px] font-medium">Nothing on my list yet.</p>
 
             <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-              Paste a full page URL above, then tap the text you care about in
-              the preview — or use paste if the site won&apos;t load.
+              Paste a full page URL above, then tap the text you care about in the preview — or use
+              paste if the site won&apos;t load.
             </p>
 
             <button
@@ -343,9 +317,7 @@ function Home() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold">
-                      {watch.label}
-                    </p>
+                    <p className="truncate text-[15px] font-semibold">{watch.label}</p>
 
                     <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
                       {watch.host ?? "webpage"} · {watchConditionLabel(watch)}

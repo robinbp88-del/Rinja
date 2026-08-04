@@ -1,11 +1,6 @@
 import { Suspense, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import {
-  Bounds,
-  Center,
-  Environment,
-  useGLTF,
-} from "@react-three/drei";
+import { Bounds, Center, Environment, useGLTF } from "@react-three/drei";
 import type { Group } from "three";
 import type { RinjaMood } from "./RinjaMascot";
 
@@ -40,10 +35,7 @@ function RinjaModel({ mood }: { mood: RinjaMood }) {
 
 export default function RinjaCanvas({ mood, size }: Props) {
   return (
-    <div
-      style={{ width: size, height: size }}
-      className="relative overflow-visible bg-transparent"
-    >
+    <div style={{ width: size, height: size }} className="relative overflow-visible bg-transparent">
       <Canvas
         dpr={[1, 1.5]}
         camera={{ position: [0, 0.2, 2.6], fov: 30, near: 0.1, far: 50 }}
@@ -55,11 +47,7 @@ export default function RinjaCanvas({ mood, size }: Props) {
         style={{ background: "transparent" }}
       >
         <ambientLight intensity={0.65} />
-        <directionalLight
-          position={[2.5, 3.5, 2]}
-          intensity={1.4}
-          color="#efe6ff"
-        />
+        <directionalLight position={[2.5, 3.5, 2]} intensity={1.4} color="#efe6ff" />
         <pointLight position={[-2, 1.2, 1.5]} intensity={1.0} color="#a855f7" />
 
         <Suspense fallback={null}>

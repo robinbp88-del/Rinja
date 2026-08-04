@@ -1,37 +1,9 @@
-import {
-  Component,
-  lazy,
-  Suspense,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
-import rinjaHero from "../assets/rinja.png";
-import rinjaGuard from "../assets/rinja-guard.png";
-import rinjaBinoculars from "../assets/binoculars.png";
-import rinjaLaptop from "../assets/rinja-laptop.png";
-import rinjaNotify from "../assets/rinja-notify.png";
-import rinjaSecure from "../assets/rinja-secure.png";
-import rinjaRelax from "../assets/rinja-relax.png";
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 
-type Variant =
-  | "idle"
-  | "hero"
-  | "guard"
-  | "binoculars"
-  | "laptop"
-  | "notify"
-  | "secure"
-  | "relax";
+type Variant = "idle" | "hero" | "guard" | "binoculars" | "laptop" | "notify" | "secure" | "relax";
 
 export type RinjaMood =
-  | "neutral"
-  | "happy"
-  | "curious"
-  | "alert"
-  | "sleepy"
-  | "excited"
-  | "thinking";
+  "neutral" | "happy" | "curious" | "alert" | "sleepy" | "excited" | "thinking";
 
 type Props = {
   variant?: Variant;
@@ -39,7 +11,7 @@ type Props = {
   size?: number;
   className?: string;
   priority?: boolean;
-  /** Force PNG poses instead of GLB. */
+  /** Force PNG/WebP poses instead of GLB. */
   flat?: boolean;
 };
 
@@ -55,46 +27,31 @@ const DEFAULT_MOOD: Record<Variant, RinjaMood> = {
 };
 
 const MOOD_GLOW: Record<RinjaMood, string> = {
-  neutral:
-    "radial-gradient(circle at 50% 55%, oklch(0.58 0.24 295 / 0.4) 0%, transparent 70%)",
-  happy:
-    "radial-gradient(circle at 50% 55%, oklch(0.72 0.18 145 / 0.35) 0%, transparent 70%)",
-  curious:
-    "radial-gradient(circle at 50% 55%, oklch(0.62 0.22 250 / 0.35) 0%, transparent 70%)",
-  alert:
-    "radial-gradient(circle at 50% 55%, oklch(0.68 0.22 45 / 0.4) 0%, transparent 70%)",
-  sleepy:
-    "radial-gradient(circle at 50% 55%, oklch(0.45 0.08 285 / 0.3) 0%, transparent 70%)",
-  excited:
-    "radial-gradient(circle at 50% 55%, oklch(0.65 0.28 320 / 0.4) 0%, transparent 70%)",
-  thinking:
-    "radial-gradient(circle at 50% 55%, oklch(0.55 0.2 280 / 0.35) 0%, transparent 70%)",
+  neutral: "radial-gradient(circle at 50% 55%, oklch(0.58 0.24 295 / 0.4) 0%, transparent 70%)",
+  happy: "radial-gradient(circle at 50% 55%, oklch(0.72 0.18 145 / 0.35) 0%, transparent 70%)",
+  curious: "radial-gradient(circle at 50% 55%, oklch(0.62 0.22 250 / 0.35) 0%, transparent 70%)",
+  alert: "radial-gradient(circle at 50% 55%, oklch(0.68 0.22 45 / 0.4) 0%, transparent 70%)",
+  sleepy: "radial-gradient(circle at 50% 55%, oklch(0.45 0.08 285 / 0.3) 0%, transparent 70%)",
+  excited: "radial-gradient(circle at 50% 55%, oklch(0.65 0.28 320 / 0.4) 0%, transparent 70%)",
+  thinking: "radial-gradient(circle at 50% 55%, oklch(0.55 0.2 280 / 0.35) 0%, transparent 70%)",
 };
 
-/** Soft edge so baked square backgrounds in PNGs don't read as a card. */
-const SOFT_MASK =
-  "radial-gradient(ellipse 72% 78% at 50% 46%, #000 38%, transparent 72%)";
+/** Soft edge so baked square backgrounds don't read as a card. */
+const SOFT_MASK = "radial-gradient(ellipse 72% 78% at 50% 46%, #000 38%, transparent 72%)";
 
 const RinjaCanvas = lazy(() => import("./RinjaCanvas"));
 
-function assetFor(variant: Variant) {
-  switch (variant) {
-    case "guard":
-      return rinjaGuard;
-    case "binoculars":
-      return rinjaBinoculars;
-    case "laptop":
-      return rinjaLaptop;
-    case "notify":
-      return rinjaNotify;
-    case "secure":
-      return rinjaSecure;
-    case "relax":
-      return rinjaRelax;
-    default:
-      return rinjaHero;
-  }
-}
+/** Lazy asset map — only the requested pose is fetched. */
+const VARIANT_LOADERS: Record<Variant, () => Promise<{ default: string }>> = {
+  idle: () => import("../assets/rinja.webp"),
+  hero: () => import("../assets/rinja.webp"),
+  guard: () => import("../assets/rinja-guard.webp"),
+  binoculars: () => import("../assets/binoculars.webp"),
+  laptop: () => import("../assets/rinja-laptop.webp"),
+  notify: () => import("../assets/rinja-notify.webp"),
+  secure: () => import("../assets/rinja-secure.webp"),
+  relax: () => import("../assets/rinja-relax.webp"),
+};
 
 function FallbackImage({
   variant,
@@ -107,6 +64,18 @@ function FallbackImage({
   priority: boolean;
   mood: RinjaMood;
 }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void VARIANT_LOADERS[variant]().then((mod) => {
+      if (!cancelled) setSrc(mod.default);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [variant]);
+
   return (
     <div
       className="relative inline-flex items-center justify-center overflow-visible"
@@ -121,27 +90,33 @@ function FallbackImage({
           opacity: 0.85,
         }}
       />
-      <img
-        src={assetFor(variant)}
-        alt=""
-        width={size}
-        height={size}
-        {...(priority ? {} : { loading: "lazy" as const })}
-        className="relative select-none object-contain"
-        style={{
-          width: size,
-          height: size,
-          // Stand still — no bobbing / left-right idle loops.
-          transformOrigin: "50% 70%",
-          WebkitMaskImage: SOFT_MASK,
-          maskImage: SOFT_MASK,
-          filter:
-            mood === "sleepy"
-              ? "brightness(0.94) saturate(0.9)"
-              : "drop-shadow(0 18px 28px oklch(0.2 0.1 295 / 0.4))",
-        }}
-        draggable={false}
-      />
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          width={size}
+          height={size}
+          {...(priority ? {} : { loading: "lazy" as const })}
+          className="relative select-none object-contain"
+          style={{
+            width: size,
+            height: size,
+            transformOrigin: "50% 70%",
+            WebkitMaskImage: SOFT_MASK,
+            maskImage: SOFT_MASK,
+            filter:
+              mood === "sleepy"
+                ? "brightness(0.94) saturate(0.9)"
+                : "drop-shadow(0 18px 28px oklch(0.2 0.1 295 / 0.4))",
+          }}
+          draggable={false}
+        />
+      ) : (
+        <div
+          className="relative rounded-full bg-muted/30"
+          style={{ width: size * 0.72, height: size * 0.72 }}
+        />
+      )}
     </div>
   );
 }
@@ -167,7 +142,7 @@ class CanvasErrorCatch extends Component<
 }
 
 /**
- * Prefers flat PNG poses (no WebGL square viewport). Soft mask + static pose
+ * Prefers flat WebP poses (no WebGL square viewport). Soft mask + static pose
  * so Rinja reads as a character in the room, not a boxed widget.
  */
 export function RinjaMascot({
@@ -200,12 +175,7 @@ export function RinjaMascot({
   if (!mounted || failed || preferFlat) {
     return (
       <div className={className}>
-        <FallbackImage
-          variant={variant}
-          size={size}
-          priority={priority}
-          mood={resolvedMood}
-        />
+        <FallbackImage variant={variant} size={size} priority={priority} mood={resolvedMood} />
       </div>
     );
   }
@@ -221,23 +191,18 @@ export function RinjaMascot({
         style={{
           background: MOOD_GLOW[resolvedMood],
           filter: "blur(16px)",
+          opacity: 0.8,
         }}
       />
-
-      <Suspense
-        fallback={
-          <FallbackImage
-            variant={variant}
-            size={size}
-            priority={priority}
-            mood={resolvedMood}
-          />
-        }
-      >
-        <CanvasErrorCatch onError={() => setFailed(true)}>
-          <RinjaCanvas mood={resolvedMood} size={size} />
-        </CanvasErrorCatch>
-      </Suspense>
+      <CanvasErrorCatch onError={() => setFailed(true)}>
+        <Suspense
+          fallback={
+            <FallbackImage variant={variant} size={size} priority={priority} mood={resolvedMood} />
+          }
+        >
+          <RinjaCanvas size={size} mood={resolvedMood} />
+        </Suspense>
+      </CanvasErrorCatch>
     </div>
   );
 }
