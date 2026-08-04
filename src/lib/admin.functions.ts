@@ -13,16 +13,23 @@ export type AdminStats = {
   active24h: number;
   active7d: number;
   watchesTotal: number;
+  watchesActive: number;
   alertsToday: number;
   alerts7d: number;
   searchesToday: number;
   searches7d: number;
   pushSubscriptions: number;
+  checksOk24h: number;
+  checksFail24h: number;
+  watchesUnstable: number;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorSample: string | null;
+  lastAttemptedAt: string | null;
 };
 
 async function requireAdminFromToken(accessToken: string): Promise<User> {
-  const supabaseUrl =
-    process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !anonKey) {
     throw new Error("Missing Supabase config");
@@ -43,10 +50,7 @@ async function requireAdminFromToken(accessToken: string): Promise<User> {
   return data.user;
 }
 
-async function countRows(
-  table: string,
-  sinceIso?: string,
-): Promise<number> {
+async function countRows(table: string, sinceIso?: string): Promise<number> {
   const supabase = createServiceClient();
   let q = supabase.from(table).select("*", { count: "exact", head: true });
   if (sinceIso) {
@@ -120,6 +124,8 @@ export const getAdminStats = createServerFn({ method: "POST" })
     startOfToday.setHours(0, 0, 0, 0);
     const todayIso = startOfToday.toISOString();
 
+    const supabase = createServiceClient();
+
     const [
       usersTotal,
       active24h,
@@ -142,15 +148,106 @@ export const getAdminStats = createServerFn({ method: "POST" })
       countRows("push_subscriptions"),
     ]);
 
+    const [activeRes, okRes, failRes, unstableRes, lastSuccessRes, lastErrorRes, lastAttemptRes] =
+      await Promise.all([
+        supabase.from("watches").select("*", { count: "exact", head: true }).eq("paused", false),
+        supabase
+          .from("watches")
+          .select("*", { count: "exact", head: true })
+          .gte("last_success_at", dayAgo),
+        supabase
+          .from("watches")
+          .select("*", { count: "exact", head: true })
+          .gte("last_attempted_at", dayAgo)
+          .in("check_status", ["error", "blocked", "unsupported"]),
+        supabase
+          .from("watches")
+          .select("*", { count: "exact", head: true })
+          .gte("consecutive_failures", 3),
+        supabase
+          .from("watches")
+          .select("last_success_at")
+          .not("last_success_at", "is", null)
+          .order("last_success_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("watches")
+          .select("last_error, last_attempted_at")
+          .not("last_error", "is", null)
+          .order("last_attempted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("watches")
+          .select("last_attempted_at")
+          .not("last_attempted_at", "is", null)
+          .order("last_attempted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+    const lastErrorSample = lastErrorRes.data?.last_error
+      ? String(lastErrorRes.data.last_error).slice(0, 160)
+      : null;
+
     return {
       usersTotal,
       active24h,
       active7d,
       watchesTotal,
+      watchesActive: activeRes.count ?? 0,
       alertsToday,
       alerts7d,
       searchesToday,
       searches7d,
       pushSubscriptions,
+      checksOk24h: okRes.count ?? 0,
+      checksFail24h: failRes.count ?? 0,
+      watchesUnstable: unstableRes.count ?? 0,
+      lastSuccessAt: lastSuccessRes.data?.last_success_at ?? null,
+      lastErrorAt: lastErrorRes.data?.last_attempted_at ?? null,
+      lastErrorSample,
+      lastAttemptedAt: lastAttemptRes.data?.last_attempted_at ?? null,
+    };
+  });
+
+/** Admin-only: run due watch checks once (optional force). */
+export const runAdminMonitorOnce = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        accessToken: z.string().min(20),
+        force: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }) => {
+    await requireAdminFromToken(data.accessToken);
+    const { runDueWatchChecks } = await import("./monitoring/engine");
+    const started = Date.now();
+    const summary = await runDueWatchChecks(25, {
+      force: Boolean(data.force),
+    });
+    console.info(
+      JSON.stringify({
+        event: "admin_monitor_run",
+        force: Boolean(data.force),
+        elapsedMs: Date.now() - started,
+        checked: summary.checked,
+        changed: summary.changed,
+        errors: summary.errors,
+        at: new Date().toISOString(),
+      }),
+    );
+    return {
+      ok: true as const,
+      force: Boolean(data.force),
+      elapsedMs: Date.now() - started,
+      checked: summary.checked,
+      changed: summary.changed,
+      errors: summary.errors,
+      skipped: summary.skipped,
+      baselines: summary.baselines,
     };
   });
