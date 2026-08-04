@@ -21,6 +21,7 @@ import {
   ReportProblemButton,
   useAccessToken,
 } from "../components/BetaChrome";
+import { InboxSheet } from "../components/InboxSheet";
 import { useStore } from "../lib/store";
 import { signOut } from "../lib/auth";
 import { getWatches } from "../lib/watches";
@@ -56,6 +57,7 @@ function Profile() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
 
   const token = useAccessToken();
   const checkAccess = useServerFn(checkAdminAccess);
@@ -178,8 +180,9 @@ function Profile() {
 
       <section className="mt-6 px-6">
         <Group>
-          <Link
-            to="/inbox"
+          <button
+            type="button"
+            onClick={() => setInboxOpen(true)}
             className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-accent"
           >
             <Inbox className="h-4 w-4 text-muted-foreground" />
@@ -192,7 +195,7 @@ function Profile() {
               <span className="text-xs text-muted-foreground">Messages</span>
             )}
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </Link>
+          </button>
           <Row icon={Palette} label="Theme" hint="Dark" />
           <Link
             to="/settings"
@@ -245,6 +248,8 @@ function Profile() {
 
         {logoutError && <p className="mt-3 text-center text-xs text-destructive">{logoutError}</p>}
       </section>
+
+      <InboxSheet open={inboxOpen} onOpenChange={setInboxOpen} />
 
       <ConfirmDialog
         open={confirmOpen}

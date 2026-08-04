@@ -97,12 +97,12 @@ export function ReportProblemButton() {
               </button>
             </div>
             <p className="mt-2 text-[12px] text-muted-foreground">
-              Short note is enough — what page, what happened. No passwords. Replies show up in
-              Inbox.
+              Short note is enough — what page, what happened. No passwords. Replies show up when
+              you open Inbox on Profile.
             </p>
             {done ? (
               <p className="mt-4 text-sm text-primary">
-                Thanks — we got it. Open Inbox for updates.
+                Thanks — we got it. Open Inbox on Profile for updates.
               </p>
             ) : (
               <>

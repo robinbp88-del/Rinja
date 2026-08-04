@@ -1,11 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, Inbox, Loader2, Send } from "lucide-react";
+import { Inbox, Loader2, Send, X } from "lucide-react";
 
-import { BottomNav } from "../components/BottomNav";
-import { timeAgoLabel, useAccessToken } from "../components/BetaChrome";
+import { timeAgoLabel, useAccessToken } from "./BetaChrome";
 import { checkAdminAccess } from "../lib/admin.functions";
 import {
   listAdminBetaReports,
@@ -21,12 +19,6 @@ import {
   sendInboxMessage,
   type InboxMessage,
 } from "../lib/inbox.functions";
-import { requireAuth } from "../lib/requireAuth";
-
-export const Route = createFileRoute("/inbox")({
-  beforeLoad: requireAuth,
-  component: InboxPage,
-});
 
 function ReportCard({
   report,
@@ -199,7 +191,7 @@ function ComposePanel({ token }: { token: string }) {
   });
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
+    <section className="rounded-2xl border border-border bg-muted/20 p-4">
       <div className="flex items-center gap-2">
         <Send className="h-4 w-4 text-primary" />
         <h2 className="text-sm font-semibold">Send message</h2>
@@ -252,7 +244,7 @@ function ComposePanel({ token }: { token: string }) {
   );
 }
 
-function InboxPage() {
+function InboxBody({ active }: { active: boolean }) {
   const token = useAccessToken();
   const queryClient = useQueryClient();
   const checkAccess = useServerFn(checkAdminAccess);
@@ -264,7 +256,7 @@ function InboxPage() {
 
   const accessQuery = useQuery({
     queryKey: ["admin", "access", token],
-    enabled: Boolean(token),
+    enabled: Boolean(token) && active,
     queryFn: async () => {
       if (!token) return { admin: false };
       return checkAccess({ data: { accessToken: token } });
@@ -276,7 +268,7 @@ function InboxPage() {
 
   const adminReportsQuery = useQuery({
     queryKey: ["beta-reports", "admin", token],
-    enabled: Boolean(token) && isAdmin,
+    enabled: Boolean(token) && active && isAdmin,
     queryFn: async () => {
       if (!token) return [];
       return listAdminReports({ data: { accessToken: token } });
@@ -285,7 +277,7 @@ function InboxPage() {
 
   const myReportsQuery = useQuery({
     queryKey: ["beta-reports", "mine", token],
-    enabled: Boolean(token) && !isAdmin,
+    enabled: Boolean(token) && active && !isAdmin,
     queryFn: async () => {
       if (!token) return [];
       return listMyReports({ data: { accessToken: token } });
@@ -294,7 +286,7 @@ function InboxPage() {
 
   const messagesQuery = useQuery({
     queryKey: ["inbox", "messages", token],
-    enabled: Boolean(token),
+    enabled: Boolean(token) && active,
     queryFn: async () => {
       if (!token) return [];
       return listMessages({ data: { accessToken: token } });
@@ -302,12 +294,12 @@ function InboxPage() {
   });
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !active) return;
     void markRead({ data: { accessToken: token } }).then(() => {
       void queryClient.invalidateQueries({ queryKey: ["inbox", "unread"] });
       void unreadFn({ data: { accessToken: token } });
     });
-  }, [token, markRead, queryClient, unreadFn]);
+  }, [token, active, markRead, queryClient, unreadFn]);
 
   const loading =
     !token ||
@@ -315,105 +307,133 @@ function InboxPage() {
     messagesQuery.isLoading ||
     (isAdmin ? adminReportsQuery.isLoading : myReportsQuery.isLoading);
 
-  return (
-    <div className="min-h-screen pb-32">
-      <header className="flex items-center gap-3 px-4 pt-6 screen-safe">
-        <Link
-          to="/profile"
-          aria-label="Back"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Link>
-        <div className="flex items-center gap-2">
-          <Inbox className="h-4 w-4 text-primary" />
-          <h1 className="text-[22px] font-semibold tracking-tight">Inbox</h1>
-        </div>
-      </header>
-
-      <div className="mt-5 space-y-6 px-6">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <>
-            {isAdmin && token ? <ComposePanel token={token} /> : null}
-
-            {isAdmin ? (
-              <section>
-                <h2 className="mb-3 text-sm font-semibold">Problem reports</h2>
-                {!adminReportsQuery.data?.length ? (
-                  <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
-                    No reports yet.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {adminReportsQuery.data.map((report) => (
-                      <ReportCard key={report.id} report={report} showEmail adminReplyUi />
-                    ))}
-                  </div>
-                )}
-              </section>
-            ) : (
-              <>
-                <section>
-                  <h2 className="mb-3 text-sm font-semibold">From Rinja</h2>
-                  {!messagesQuery.data?.length ? (
-                    <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
-                      No messages yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {messagesQuery.data.map((m) => (
-                        <MessageCard key={m.id} message={m} />
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                <section>
-                  <h2 className="mb-3 text-sm font-semibold">Your reports</h2>
-                  {!myReportsQuery.data?.length ? (
-                    <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
-                      You haven’t reported anything yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {myReportsQuery.data.map((report) => (
-                        <ReportCard key={report.id} report={report} />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              </>
-            )}
-
-            {isAdmin ? (
-              <section>
-                <h2 className="mb-3 text-sm font-semibold">Your copy of messages</h2>
-                <p className="mb-2 text-[12px] text-muted-foreground">
-                  Messages you send also land in each user’s Inbox (including yours if you’re in the
-                  list).
-                </p>
-                {!messagesQuery.data?.length ? (
-                  <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
-                    Nothing in your personal inbox yet.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {messagesQuery.data.map((m) => (
-                      <MessageCard key={m.id} message={m} />
-                    ))}
-                  </div>
-                )}
-              </section>
-            ) : null}
-          </>
-        )}
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
 
-      <BottomNav />
+  return (
+    <div className="space-y-6 pb-8">
+      {isAdmin && token ? <ComposePanel token={token} /> : null}
+
+      {isAdmin ? (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold">Problem reports</h2>
+          {!adminReportsQuery.data?.length ? (
+            <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
+              No reports yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {adminReportsQuery.data.map((report) => (
+                <ReportCard key={report.id} report={report} showEmail adminReplyUi />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          <section>
+            <h2 className="mb-3 text-sm font-semibold">From Rinja</h2>
+            {!messagesQuery.data?.length ? (
+              <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
+                No messages yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {messagesQuery.data.map((m) => (
+                  <MessageCard key={m.id} message={m} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-sm font-semibold">Your reports</h2>
+            {!myReportsQuery.data?.length ? (
+              <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
+                You haven’t reported anything yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {myReportsQuery.data.map((report) => (
+                  <ReportCard key={report.id} report={report} />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {isAdmin ? (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold">Your messages</h2>
+          {!messagesQuery.data?.length ? (
+            <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
+              Nothing in your personal inbox yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {messagesQuery.data.map((m) => (
+                <MessageCard key={m.id} message={m} />
+              ))}
+            </div>
+          )}
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+/** Full-screen sheet over Profile — closed by default. */
+export function InboxSheet({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onOpenChange]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/50">
+      <button
+        type="button"
+        aria-label="Close inbox"
+        className="min-h-[8vh] flex-shrink-0"
+        onClick={() => onOpenChange(false)}
+      />
+      <div className="flex min-h-0 flex-1 flex-col rounded-t-3xl border border-border bg-background shadow-2xl screen-safe">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Inbox className="h-4 w-4 text-primary" />
+            <h2 className="text-[18px] font-semibold tracking-tight">Inbox</h2>
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => onOpenChange(false)}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4">
+          <InboxBody active={open} />
+        </div>
+      </div>
     </div>
   );
 }

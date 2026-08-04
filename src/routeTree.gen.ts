@@ -21,7 +21,6 @@ import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as InterestsRouteImport } from './routes/interests'
-import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HighlightRouteImport } from './routes/highlight'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -92,11 +91,6 @@ const InterestsRoute = InterestsRouteImport.update({
   path: '/interests',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InboxRoute = InboxRouteImport.update({
-  id: '/inbox',
-  path: '/inbox',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -149,7 +143,6 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
-  '/inbox': typeof InboxRoute
   '/interests': typeof InterestsRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -173,7 +166,6 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
-  '/inbox': typeof InboxRoute
   '/interests': typeof InterestsRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -198,7 +190,6 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
-  '/inbox': typeof InboxRoute
   '/interests': typeof InterestsRoute
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
@@ -224,7 +215,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/highlight'
     | '/home'
-    | '/inbox'
     | '/interests'
     | '/login'
     | '/notifications'
@@ -248,7 +238,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/highlight'
     | '/home'
-    | '/inbox'
     | '/interests'
     | '/login'
     | '/notifications'
@@ -272,7 +261,6 @@ export interface FileRouteTypes {
     | '/admin'
     | '/highlight'
     | '/home'
-    | '/inbox'
     | '/interests'
     | '/login'
     | '/notifications'
@@ -297,7 +285,6 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   HighlightRoute: typeof HighlightRoute
   HomeRoute: typeof HomeRoute
-  InboxRoute: typeof InboxRoute
   InterestsRoute: typeof InterestsRoute
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -402,13 +389,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InterestsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/inbox': {
-      id: '/inbox'
-      path: '/inbox'
-      fullPath: '/inbox'
-      preLoaderRoute: typeof InboxRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/home': {
       id: '/home'
       path: '/home'
@@ -481,7 +461,6 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   HighlightRoute: HighlightRoute,
   HomeRoute: HomeRoute,
-  InboxRoute: InboxRoute,
   InterestsRoute: InterestsRoute,
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
