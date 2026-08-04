@@ -26,6 +26,7 @@ import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
 import { supabase } from "../lib/supabase";
 import { normalizeWatchUrl } from "../lib/url-input";
+import { logSearchEvent } from "../lib/activity";
 import binoculars from "../assets/binoculars.png";
 
 export const Route = createFileRoute("/home")({
@@ -144,6 +145,8 @@ function Home() {
   const submit = () => {
     const value = query.trim();
     if (!value) return;
+
+    void logSearchEvent(value);
 
     const url = normalizeWatchUrl(value);
     if (url) {

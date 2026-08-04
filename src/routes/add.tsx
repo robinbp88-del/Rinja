@@ -14,6 +14,7 @@ import { z } from "zod";
 import { requireAuth } from "../lib/requireAuth";
 import { hostFromUrl } from "../lib/store";
 import { looksLikeSiteHome, normalizeWatchUrl } from "../lib/url-input";
+import { logSearchEvent } from "../lib/activity";
 
 const searchSchema = z.object({ url: z.string().optional() });
 
@@ -45,6 +46,7 @@ function AddWatch() {
 
   const goPaste = () => {
     if (!normalized) return;
+    void logSearchEvent(normalized);
     navigate({
       to: "/setup",
       search: { url: normalized, intent: "paste" },
@@ -53,6 +55,7 @@ function AddWatch() {
 
   const goPage = () => {
     if (!normalized) return;
+    void logSearchEvent(normalized);
     navigate({
       to: "/setup",
       search: { url: normalized, intent: "page" },
@@ -61,6 +64,7 @@ function AddWatch() {
 
   const goHighlight = () => {
     if (!normalized) return;
+    void logSearchEvent(normalized);
     navigate({ to: "/highlight", search: { url: normalized } as never });
   };
 

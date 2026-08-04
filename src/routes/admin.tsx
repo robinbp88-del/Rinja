@@ -162,11 +162,12 @@ function AdminPage() {
         />
         <StatCard label="Alerts 7d" value={stats?.alerts7d ?? "—"} />
         <StatCard
-          label="Searches today"
+          label="Lookups today"
           value={stats?.searchesToday ?? "—"}
+          hint="URL field + Search"
         />
         <StatCard
-          label="Searches 7d"
+          label="Lookups 7d"
           value={stats?.searches7d ?? "—"}
         />
         <StatCard
