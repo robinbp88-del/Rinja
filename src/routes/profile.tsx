@@ -10,6 +10,7 @@ import {
   FileText,
   LogOut,
   Loader2,
+  Inbox,
 } from "lucide-react";
 
 import { BottomNav } from "../components/BottomNav";
@@ -18,8 +19,7 @@ import {
   BetaBadge,
   BetaBanner,
   ReportProblemButton,
-  AdminBetaInbox,
-  MyBetaReports,
+  useAccessToken,
 } from "../components/BetaChrome";
 import { useStore } from "../lib/store";
 import { signOut } from "../lib/auth";
@@ -28,6 +28,10 @@ import { toUserError } from "../lib/user-errors";
 import { useAuth } from "../providers/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { requireAuth } from "../lib/requireAuth";
+import { useServerFn } from "@tanstack/react-start";
+import { checkAdminAccess } from "../lib/admin.functions";
+import { getInboxUnreadCount } from "../lib/inbox.functions";
+import { listAdminBetaReports, listMyBetaReports } from "../lib/beta-report.functions";
 
 export const Route = createFileRoute("/profile")({
   beforeLoad: requireAuth,
@@ -52,6 +56,49 @@ function Profile() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const token = useAccessToken();
+  const checkAccess = useServerFn(checkAdminAccess);
+  const unreadFn = useServerFn(getInboxUnreadCount);
+  const listAdminReports = useServerFn(listAdminBetaReports);
+  const listMyReports = useServerFn(listMyBetaReports);
+
+  const adminQuery = useQuery({
+    queryKey: ["admin", "access", token],
+    enabled: Boolean(token),
+    queryFn: async () => {
+      if (!token) return { admin: false };
+      return checkAccess({ data: { accessToken: token } });
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const unreadQuery = useQuery({
+    queryKey: ["inbox", "unread", token],
+    enabled: Boolean(token),
+    queryFn: async () => {
+      if (!token) return { count: 0 };
+      return unreadFn({ data: { accessToken: token } });
+    },
+    refetchInterval: 60_000,
+  });
+
+  const openReportsQuery = useQuery({
+    queryKey: ["beta-reports", "badge", token, adminQuery.data?.admin],
+    enabled: Boolean(token) && adminQuery.data !== undefined,
+    queryFn: async () => {
+      if (!token) return 0;
+      if (adminQuery.data?.admin) {
+        const rows = await listAdminReports({ data: { accessToken: token } });
+        return rows.filter((r) => r.status === "open").length;
+      }
+      const rows = await listMyReports({ data: { accessToken: token } });
+      return rows.filter((r) => r.status === "replied" && r.admin_reply).length;
+    },
+  });
+
+  const inboxBadge =
+    (unreadQuery.data?.count ?? 0) + (adminQuery.data?.admin ? (openReportsQuery.data ?? 0) : 0);
 
   const displayName = authUser?.user_metadata?.name ?? authUser?.email?.split("@")[0] ?? "You";
 
@@ -110,9 +157,6 @@ function Profile() {
         </div>
       </section>
 
-      <AdminBetaInbox />
-      <MyBetaReports />
-
       <section className="mt-6 px-6">
         <Link
           to="/premium"
@@ -134,6 +178,21 @@ function Profile() {
 
       <section className="mt-6 px-6">
         <Group>
+          <Link
+            to="/inbox"
+            className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-accent"
+          >
+            <Inbox className="h-4 w-4 text-muted-foreground" />
+            <span className="flex-1 text-sm">Inbox</span>
+            {inboxBadge > 0 ? (
+              <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                {inboxBadge}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">Messages</span>
+            )}
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
           <Row icon={Palette} label="Theme" hint="Dark" />
           <Link
             to="/settings"
