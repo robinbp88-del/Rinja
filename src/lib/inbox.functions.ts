@@ -119,6 +119,7 @@ export const markInboxMessagesRead = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await requireUser(data.accessToken);
     const supabase = createServiceClient();
+
     const { error } = await supabase
       .from("inbox_messages")
       .update({ read: true })
@@ -126,8 +127,60 @@ export const markInboxMessagesRead = createServerFn({ method: "POST" })
       .eq("read", false);
 
     if (error) {
-      console.warn("markInboxMessagesRead failed:", error.message);
+      console.error("markInboxMessagesRead failed:", error.message);
+      throw new Error("Could not mark messages as read.");
     }
+
+    // Clear matching Alerts (inbox/system rows have no watch_id).
+    const { error: alertErr } = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false)
+      .is("watch_id", null);
+
+    if (alertErr) {
+      console.warn("mark inbox alerts read failed:", alertErr.message);
+    }
+
+    return { ok: true as const };
+  });
+
+const MessageIdSchema = z.object({
+  accessToken: z.string().min(20),
+  messageId: z.string().uuid(),
+});
+
+/** Mark one inbox message as read (when user opens it). */
+export const markInboxMessageRead = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => MessageIdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const user = await requireUser(data.accessToken);
+    const supabase = createServiceClient();
+
+    const { data: row, error } = await supabase
+      .from("inbox_messages")
+      .update({ read: true })
+      .eq("id", data.messageId)
+      .eq("recipient_user_id", user.id)
+      .select("title")
+      .maybeSingle();
+
+    if (error) {
+      console.error("markInboxMessageRead failed:", error.message);
+      throw new Error("Could not mark message as read.");
+    }
+
+    if (row?.title) {
+      await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("user_id", user.id)
+        .eq("read", false)
+        .eq("title", row.title)
+        .is("watch_id", null);
+    }
+
     return { ok: true as const };
   });
 
@@ -241,7 +294,7 @@ export const sendInboxMessage = createServerFn({ method: "POST" })
     return { ok: true as const, sent: recipientIds.length };
   });
 
-/** Badge for Profile tab: unread inbox messages (+ open reports for admin). */
+/** Badge for Profile tab: unread inbox messages only. */
 export const getInboxBadgeCount = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => TokenSchema.parse(input))
   .handler(async ({ data }): Promise<{ count: number }> => {
@@ -256,22 +309,10 @@ export const getInboxBadgeCount = createServerFn({ method: "POST" })
 
     if (msgErr) {
       console.warn("getInboxBadgeCount messages failed:", msgErr.message);
+      return { count: 0 };
     }
 
-    let openReports = 0;
-    if (isAdminUser(user)) {
-      const { count, error } = await supabase
-        .from("beta_reports")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "open");
-      if (error) {
-        console.warn("getInboxBadgeCount reports failed:", error.message);
-      } else {
-        openReports = count ?? 0;
-      }
-    }
-
-    return { count: (unreadMessages ?? 0) + openReports };
+    return { count: unreadMessages ?? 0 };
   });
 
 /** Admin: messages they sent recently. */

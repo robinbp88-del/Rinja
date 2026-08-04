@@ -237,3 +237,27 @@ export const replyToBetaReport = createServerFn({ method: "POST" })
 
     return { ok: true as const };
   });
+
+const DismissReportSchema = z.object({
+  accessToken: z.string().min(20),
+  reportId: z.string().uuid(),
+});
+
+/** Admin: mark a report as seen/closed without a reply. */
+export const dismissBetaReport = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => DismissReportSchema.parse(input))
+  .handler(async ({ data }) => {
+    await requireAdmin(data.accessToken);
+    const supabase = createServiceClient();
+    const { error } = await supabase
+      .from("beta_reports")
+      .update({ status: "closed" })
+      .eq("id", data.reportId)
+      .eq("status", "open");
+
+    if (error) {
+      console.error("dismissBetaReport failed:", error.message);
+      throw new Error("Could not mark report as seen.");
+    }
+    return { ok: true as const };
+  });

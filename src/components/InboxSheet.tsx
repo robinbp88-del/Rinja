@@ -6,6 +6,7 @@ import { Inbox, Loader2, Send, X } from "lucide-react";
 import { timeAgoLabel, useAccessToken } from "./BetaChrome";
 import { checkAdminAccess } from "../lib/admin.functions";
 import {
+  dismissBetaReport,
   listAdminBetaReports,
   listMyBetaReports,
   replyToBetaReport,
@@ -14,11 +15,16 @@ import {
 import {
   listInboxRecipients,
   listMyInboxMessages,
+  markInboxMessageRead,
   markInboxMessagesRead,
   sendInboxMessage,
   type InboxMessage,
 } from "../lib/inbox.functions";
 
+function refreshInboxBadges(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: ["inbox"] });
+  void queryClient.invalidateQueries({ queryKey: ["notifications"] });
+}
 function SectionSpinner() {
   return (
     <div className="flex justify-center py-8">
@@ -56,7 +62,20 @@ function ReportCard({
     onSuccess: () => {
       setOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["beta-reports"] });
-      void queryClient.invalidateQueries({ queryKey: ["inbox"] });
+      refreshInboxBadges(queryClient);
+    },
+  });
+
+  const dismissFn = useServerFn(dismissBetaReport);
+  const dismissMutation = useMutation({
+    mutationFn: async () => {
+      if (!token) throw new Error("No session");
+      return dismissFn({
+        data: { accessToken: token, reportId: report.id },
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["beta-reports"] });
     },
   });
 
@@ -73,6 +92,11 @@ function ReportCard({
             <p className="text-[11px] text-muted-foreground">{report.path}</p>
           ) : null}
           <p className="mt-1 text-sm leading-snug">{report.message}</p>
+          {report.status === "open" && adminReplyUi ? (
+            <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-primary">
+              Open
+            </p>
+          ) : null}
         </div>
         <span className="shrink-0 text-[10px] text-muted-foreground">
           {timeAgoLabel(report.created_at)}
@@ -81,13 +105,15 @@ function ReportCard({
 
       {report.admin_reply ? (
         <div className="mt-3 rounded-xl bg-primary/10 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-primary">Reply from Rinja</p>
+          <p className="text-[10px] uppercase tracking-wider text-primary">
+            Reply from Rinja
+          </p>
           <p className="mt-1 text-[13px] leading-snug">{report.admin_reply}</p>
         </div>
       ) : null}
 
       {adminReplyUi ? (
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           {!open ? (
             <button
               type="button"
@@ -96,8 +122,22 @@ function ReportCard({
             >
               {report.admin_reply ? "Edit reply" : "Reply"}
             </button>
-          ) : (
-            <div className="space-y-2">
+          ) : null}
+          {report.status === "open" ? (
+            <button
+              type="button"
+              disabled={dismissMutation.isPending}
+              onClick={() => dismissMutation.mutate()}
+              className="text-[12px] text-muted-foreground"
+            >
+              Mark as seen
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {adminReplyUi && open ? (
+        <div className="mt-3 space-y-2">
               <textarea
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
@@ -124,10 +164,10 @@ function ReportCard({
                 </button>
               </div>
               {mutation.isError ? (
-                <p className="text-[12px] text-destructive">Could not send reply.</p>
+                <p className="text-[12px] text-destructive">
+                  Could not send reply.
+                </p>
               ) : null}
-            </div>
-          )}
         </div>
       ) : null}
     </div>
@@ -135,10 +175,47 @@ function ReportCard({
 }
 
 function MessageCard({ message }: { message: InboxMessage }) {
+  const token = useAccessToken();
+  const queryClient = useQueryClient();
+  const markOne = useServerFn(markInboxMessageRead);
+  const [expanded, setExpanded] = useState(false);
+  const [isRead, setIsRead] = useState(message.read);
+
+  useEffect(() => {
+    setIsRead(message.read);
+  }, [message.read]);
+
+  const markMutation = useMutation({
+    mutationFn: async () => {
+      if (!token || isRead) return;
+      return markOne({
+        data: { accessToken: token, messageId: message.id },
+      });
+    },
+    onSuccess: () => {
+      setIsRead(true);
+      void queryClient.setQueryData(
+        ["inbox", "messages", token],
+        (old: InboxMessage[] | undefined) =>
+          old?.map((m) =>
+            m.id === message.id ? { ...m, read: true } : m,
+          ),
+      );
+      refreshInboxBadges(queryClient);
+    },
+  });
+
+  function openMessage() {
+    setExpanded(true);
+    if (!isRead) markMutation.mutate();
+  }
+
   return (
-    <div
-      className={`rounded-2xl border bg-card p-4 ${
-        message.read ? "border-border" : "border-primary/40"
+    <button
+      type="button"
+      onClick={openMessage}
+      className={`w-full rounded-2xl border bg-card p-4 text-left transition ${
+        isRead ? "border-border" : "border-primary/40"
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -149,6 +226,7 @@ function MessageCard({ message }: { message: InboxMessage }) {
               : message.kind === "broadcast"
                 ? "Announcement"
                 : "Message"}
+            {!isRead ? " · New" : ""}
           </p>
           <p className="mt-1 text-sm font-medium">{message.title}</p>
         </div>
@@ -156,13 +234,21 @@ function MessageCard({ message }: { message: InboxMessage }) {
           {timeAgoLabel(message.created_at)}
         </span>
       </div>
-      <p className="mt-2 whitespace-pre-wrap text-[13px] leading-snug text-muted-foreground">
-        {message.body}
-      </p>
-    </div>
+      {expanded ? (
+        <p className="mt-2 whitespace-pre-wrap text-[13px] leading-snug text-muted-foreground">
+          {message.body}
+        </p>
+      ) : (
+        <p className="mt-2 line-clamp-2 text-[13px] text-muted-foreground">
+          {message.body}
+        </p>
+      )}
+      {!expanded ? (
+        <p className="mt-1 text-[11px] text-primary">Tap to open</p>
+      ) : null}
+    </button>
   );
 }
-
 function ComposePanel({ token }: { token: string }) {
   const queryClient = useQueryClient();
   const sendFn = useServerFn(sendInboxMessage);
@@ -305,15 +391,23 @@ function InboxBody({ active }: { active: boolean }) {
     },
   });
 
-  useEffect(() => {
-    if (!token || !active) return;
-    const timer = setTimeout(() => {
-      void markRead({ data: { accessToken: token } }).then(() => {
-        void queryClient.invalidateQueries({ queryKey: ["inbox"] });
-      });
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [token, active, markRead, queryClient]);
+  const markAllMutation = useMutation({
+    mutationFn: async () => {
+      if (!token) throw new Error("No session");
+      return markRead({ data: { accessToken: token } });
+    },
+    onSuccess: () => {
+      void queryClient.setQueryData(
+        ["inbox", "messages", token],
+        (old: InboxMessage[] | undefined) =>
+          old?.map((m) => ({ ...m, read: true })),
+      );
+      refreshInboxBadges(queryClient);
+    },
+  });
+
+  const unreadCount =
+    messagesQuery.data?.filter((m) => !m.read).length ?? 0;
 
   if (!token) {
     return (
@@ -323,6 +417,22 @@ function InboxBody({ active }: { active: boolean }) {
 
   return (
     <div className="space-y-6 pb-8">
+      {unreadCount > 0 ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+          <p className="text-[13px] text-muted-foreground">
+            {unreadCount} unread message{unreadCount === 1 ? "" : "s"}
+          </p>
+          <button
+            type="button"
+            disabled={markAllMutation.isPending}
+            onClick={() => markAllMutation.mutate()}
+            className="text-[12px] font-medium text-primary disabled:opacity-50"
+          >
+            {markAllMutation.isPending ? "Marking…" : "Mark all as read"}
+          </button>
+        </div>
+      ) : null}
+
       {accessKnown && isAdmin ? <ComposePanel token={token} /> : null}
 
       {accessQuery.isLoading ? (
