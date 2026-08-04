@@ -12,13 +12,20 @@ import {
   type BetaReport,
 } from "../lib/beta-report.functions";
 import {
-  getInboxUnreadCount,
   listInboxRecipients,
   listMyInboxMessages,
   markInboxMessagesRead,
   sendInboxMessage,
   type InboxMessage,
 } from "../lib/inbox.functions";
+
+function SectionSpinner() {
+  return (
+    <div className="flex justify-center py-8">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 function ReportCard({
   report,
@@ -164,9 +171,11 @@ function ComposePanel({ token }: { token: string }) {
   const [body, setBody] = useState("");
   const [recipient, setRecipient] = useState("all");
   const [note, setNote] = useState("");
+  const [loadPeople, setLoadPeople] = useState(false);
 
   const recipientsQuery = useQuery({
     queryKey: ["inbox", "recipients", token],
+    enabled: loadPeople,
     queryFn: () => listRecipients({ data: { accessToken: token } }),
   });
 
@@ -186,6 +195,7 @@ function ComposePanel({ token }: { token: string }) {
       setTitle("");
       setBody("");
       void queryClient.invalidateQueries({ queryKey: ["inbox"] });
+      void queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
     onError: () => setNote("Could not send. Try again."),
   });
@@ -206,9 +216,11 @@ function ComposePanel({ token }: { token: string }) {
       <select
         value={recipient}
         onChange={(e) => setRecipient(e.target.value)}
+        onFocus={() => setLoadPeople(true)}
         className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
       >
         <option value="all">Everyone</option>
+        {recipientsQuery.isLoading && loadPeople ? <option disabled>Loading users…</option> : null}
         {(recipientsQuery.data ?? []).map((u) => (
           <option key={u.id} value={u.id}>
             {u.email ?? u.id.slice(0, 8)}
@@ -252,7 +264,6 @@ function InboxBody({ active }: { active: boolean }) {
   const listMyReports = useServerFn(listMyBetaReports);
   const listMessages = useServerFn(listMyInboxMessages);
   const markRead = useServerFn(markInboxMessagesRead);
-  const unreadFn = useServerFn(getInboxUnreadCount);
 
   const accessQuery = useQuery({
     queryKey: ["admin", "access", token],
@@ -261,14 +272,15 @@ function InboxBody({ active }: { active: boolean }) {
       if (!token) return { admin: false };
       return checkAccess({ data: { accessToken: token } });
     },
-    staleTime: 5 * 60_000,
+    staleTime: 10 * 60_000,
   });
 
+  const accessKnown = accessQuery.isSuccess || accessQuery.isError;
   const isAdmin = accessQuery.data?.admin === true;
 
   const adminReportsQuery = useQuery({
     queryKey: ["beta-reports", "admin", token],
-    enabled: Boolean(token) && active && isAdmin,
+    enabled: Boolean(token) && active && accessKnown && isAdmin,
     queryFn: async () => {
       if (!token) return [];
       return listAdminReports({ data: { accessToken: token } });
@@ -277,7 +289,7 @@ function InboxBody({ active }: { active: boolean }) {
 
   const myReportsQuery = useQuery({
     queryKey: ["beta-reports", "mine", token],
-    enabled: Boolean(token) && active && !isAdmin,
+    enabled: Boolean(token) && active && accessKnown && !isAdmin,
     queryFn: async () => {
       if (!token) return [];
       return listMyReports({ data: { accessToken: token } });
@@ -295,34 +307,32 @@ function InboxBody({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!token || !active) return;
-    void markRead({ data: { accessToken: token } }).then(() => {
-      void queryClient.invalidateQueries({ queryKey: ["inbox", "unread"] });
-      void unreadFn({ data: { accessToken: token } });
-    });
-  }, [token, active, markRead, queryClient, unreadFn]);
+    const timer = setTimeout(() => {
+      void markRead({ data: { accessToken: token } }).then(() => {
+        void queryClient.invalidateQueries({ queryKey: ["inbox"] });
+      });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [token, active, markRead, queryClient]);
 
-  const loading =
-    !token ||
-    accessQuery.isLoading ||
-    messagesQuery.isLoading ||
-    (isAdmin ? adminReportsQuery.isLoading : myReportsQuery.isLoading);
-
-  if (loading) {
+  if (!token) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
+      <p className="py-8 text-center text-[13px] text-muted-foreground">Sign in to view inbox.</p>
     );
   }
 
   return (
     <div className="space-y-6 pb-8">
-      {isAdmin && token ? <ComposePanel token={token} /> : null}
+      {accessKnown && isAdmin ? <ComposePanel token={token} /> : null}
 
-      {isAdmin ? (
+      {accessQuery.isLoading ? (
+        <SectionSpinner />
+      ) : isAdmin ? (
         <section>
           <h2 className="mb-3 text-sm font-semibold">Problem reports</h2>
-          {!adminReportsQuery.data?.length ? (
+          {adminReportsQuery.isLoading ? (
+            <SectionSpinner />
+          ) : !adminReportsQuery.data?.length ? (
             <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
               No reports yet.
             </p>
@@ -338,7 +348,9 @@ function InboxBody({ active }: { active: boolean }) {
         <>
           <section>
             <h2 className="mb-3 text-sm font-semibold">From Rinja</h2>
-            {!messagesQuery.data?.length ? (
+            {messagesQuery.isLoading ? (
+              <SectionSpinner />
+            ) : !messagesQuery.data?.length ? (
               <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
                 No messages yet.
               </p>
@@ -353,7 +365,9 @@ function InboxBody({ active }: { active: boolean }) {
 
           <section>
             <h2 className="mb-3 text-sm font-semibold">Your reports</h2>
-            {!myReportsQuery.data?.length ? (
+            {myReportsQuery.isLoading ? (
+              <SectionSpinner />
+            ) : !myReportsQuery.data?.length ? (
               <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
                 You haven’t reported anything yet.
               </p>
@@ -368,10 +382,12 @@ function InboxBody({ active }: { active: boolean }) {
         </>
       )}
 
-      {isAdmin ? (
+      {accessKnown && isAdmin ? (
         <section>
           <h2 className="mb-3 text-sm font-semibold">Your messages</h2>
-          {!messagesQuery.data?.length ? (
+          {messagesQuery.isLoading ? (
+            <SectionSpinner />
+          ) : !messagesQuery.data?.length ? (
             <p className="rounded-2xl border border-border bg-card p-4 text-[13px] text-muted-foreground">
               Nothing in your personal inbox yet.
             </p>

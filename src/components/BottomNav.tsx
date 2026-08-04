@@ -5,6 +5,7 @@ import { Home, Search, Bell, User, Shield } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { syncAppBadge } from "../lib/app-badge";
 import { checkAdminAccess } from "../lib/admin.functions";
+import { getInboxBadgeCount } from "../lib/inbox.functions";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 import { supabase } from "../lib/supabase";
@@ -20,6 +21,7 @@ export function BottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useAuth();
   const checkAccess = useServerFn(checkAdminAccess);
+  const badgeFn = useServerFn(getInboxBadgeCount);
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,7 +65,18 @@ export function BottomNav() {
     refetchInterval: 60_000,
   });
 
+  const inboxBadgeQuery = useQuery({
+    queryKey: ["inbox", "badge", token],
+    enabled: Boolean(token),
+    queryFn: async () => {
+      if (!token) return { count: 0 };
+      return badgeFn({ data: { accessToken: token } });
+    },
+    refetchInterval: 60_000,
+  });
+
   const unread = unreadQuery.data ?? 0;
+  const inboxBadge = inboxBadgeQuery.data?.count ?? 0;
 
   // Home-screen icon badge = same number as Alerts tab (single source: unread).
   useEffect(() => {
@@ -98,15 +111,13 @@ export function BottomNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md screen-safe">
       <div className="mx-4 mb-3 rounded-full border border-border bg-card/80 px-2 py-2 backdrop-blur-xl">
-        <ul
-          className="grid"
-          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-        >
+        <ul className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {tabs.map(({ to, icon: Icon, label }) => {
-            const active =
-              pathname === to ||
-              (to === "/admin" && pathname.startsWith("/admin"));
-            const showBadge = to === "/notifications" && unread > 0;
+            const active = pathname === to || (to === "/admin" && pathname.startsWith("/admin"));
+            const showAlertsBadge = to === "/notifications" && unread > 0;
+            const showInboxBadge = to === "/profile" && inboxBadge > 0;
+            const showBadge = showAlertsBadge || showInboxBadge;
+            const badgeCount = showInboxBadge ? inboxBadge : unread;
 
             return (
               <li key={to} className="flex justify-center">
@@ -117,12 +128,10 @@ export function BottomNav() {
                   }`}
                 >
                   <span className="relative">
-                    <Icon
-                      className={`h-5 w-5 ${active ? "stroke-[2.4]" : ""}`}
-                    />
+                    <Icon className={`h-5 w-5 ${active ? "stroke-[2.4]" : ""}`} />
                     {showBadge && (
                       <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground shadow-sm shadow-black/30">
-                        {unread > 99 ? "99+" : unread}
+                        {badgeCount > 99 ? "99+" : badgeCount}
                       </span>
                     )}
                   </span>

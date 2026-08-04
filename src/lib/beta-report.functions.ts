@@ -139,19 +139,29 @@ export const listAdminBetaReports = createServerFn({ method: "POST" })
     }
 
     const reports = (rows ?? []) as BetaReport[];
-    const userIds = [...new Set(reports.map((r) => r.user_id))];
+    const needed = new Set(reports.map((r) => r.user_id));
     const emailById = new Map<string, string | null>();
 
-    await Promise.all(
-      userIds.map(async (id) => {
-        try {
-          const { data: authData } = await supabase.auth.admin.getUserById(id);
-          emailById.set(id, authData.user?.email ?? null);
-        } catch {
-          emailById.set(id, null);
-        }
-      }),
-    );
+    // One paginated listUsers pass instead of N getUserById round-trips.
+    let page = 1;
+    const perPage = 200;
+    for (;;) {
+      const { data: batch, error: listErr } = await supabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+      if (listErr) {
+        console.warn("listUsers for reports failed:", listErr.message);
+        break;
+      }
+      for (const u of batch.users ?? []) {
+        if (needed.has(u.id)) emailById.set(u.id, u.email ?? null);
+      }
+      if (emailById.size >= needed.size) break;
+      if ((batch.users?.length ?? 0) < perPage) break;
+      page += 1;
+      if (page > 20) break;
+    }
 
     return reports.map((r) => ({
       ...r,
@@ -167,6 +177,16 @@ export const replyToBetaReport = createServerFn({ method: "POST" })
     const reply = data.reply.replace(/[\r\n]+/g, " ").slice(0, 2000);
     const supabase = createServiceClient();
 
+    const { data: report, error: loadErr } = await supabase
+      .from("beta_reports")
+      .select("id, user_id, message")
+      .eq("id", data.reportId)
+      .maybeSingle();
+
+    if (loadErr || !report) {
+      throw new Error("Could not find that report.");
+    }
+
     const { error } = await supabase
       .from("beta_reports")
       .update({
@@ -180,6 +200,30 @@ export const replyToBetaReport = createServerFn({ method: "POST" })
     if (error) {
       console.error("replyToBetaReport failed:", error.message);
       throw new Error("Could not send reply.");
+    }
+
+    // Also land in Alerts + push so the user notices.
+    try {
+      await supabase.from("notifications").insert({
+        user_id: report.user_id,
+        watch_id: null,
+        title: "Reply in Inbox",
+        body: reply.slice(0, 280),
+        read: false,
+      });
+    } catch (notifyErr) {
+      console.warn("Reply notification insert failed:", notifyErr);
+    }
+
+    try {
+      const { sendPushToUser } = await import("./push.server");
+      await sendPushToUser(report.user_id, {
+        title: "Reply in Inbox",
+        body: reply.slice(0, 120),
+        url: "/profile",
+      });
+    } catch (pushErr) {
+      console.warn("Reply push failed:", pushErr);
     }
 
     console.info(

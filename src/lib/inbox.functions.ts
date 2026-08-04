@@ -198,6 +198,36 @@ export const sendInboxMessage = createServerFn({ method: "POST" })
       throw new Error("Could not send message.");
     }
 
+    // Alerts + push so recipients notice without opening Profile.
+    const notifyRows = recipientIds.map((user_id) => ({
+      user_id,
+      watch_id: null as string | null,
+      title,
+      body: body.slice(0, 280),
+      read: false,
+    }));
+    const { error: notifyErr } = await supabase.from("notifications").insert(notifyRows);
+    if (notifyErr) {
+      console.warn("Inbox alert insert failed:", notifyErr.message);
+    }
+
+    try {
+      const { sendPushToUser } = await import("./push.server");
+      await Promise.all(
+        recipientIds.map((userId) =>
+          sendPushToUser(userId, {
+            title,
+            body: body.slice(0, 120),
+            url: "/profile",
+          }).catch((err) => {
+            console.warn("Inbox push failed:", err);
+          }),
+        ),
+      );
+    } catch (pushErr) {
+      console.warn("Inbox push batch failed:", pushErr);
+    }
+
     console.info(
       JSON.stringify({
         event: "inbox_send",
@@ -209,6 +239,39 @@ export const sendInboxMessage = createServerFn({ method: "POST" })
     );
 
     return { ok: true as const, sent: recipientIds.length };
+  });
+
+/** Badge for Profile tab: unread inbox messages (+ open reports for admin). */
+export const getInboxBadgeCount = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => TokenSchema.parse(input))
+  .handler(async ({ data }): Promise<{ count: number }> => {
+    const user = await requireUser(data.accessToken);
+    const supabase = createServiceClient();
+
+    const { count: unreadMessages, error: msgErr } = await supabase
+      .from("inbox_messages")
+      .select("*", { count: "exact", head: true })
+      .eq("recipient_user_id", user.id)
+      .eq("read", false);
+
+    if (msgErr) {
+      console.warn("getInboxBadgeCount messages failed:", msgErr.message);
+    }
+
+    let openReports = 0;
+    if (isAdminUser(user)) {
+      const { count, error } = await supabase
+        .from("beta_reports")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "open");
+      if (error) {
+        console.warn("getInboxBadgeCount reports failed:", error.message);
+      } else {
+        openReports = count ?? 0;
+      }
+    }
+
+    return { count: (unreadMessages ?? 0) + openReports };
   });
 
 /** Admin: messages they sent recently. */

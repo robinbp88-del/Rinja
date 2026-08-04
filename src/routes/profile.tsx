@@ -30,9 +30,7 @@ import { useAuth } from "../providers/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { requireAuth } from "../lib/requireAuth";
 import { useServerFn } from "@tanstack/react-start";
-import { checkAdminAccess } from "../lib/admin.functions";
-import { getInboxUnreadCount } from "../lib/inbox.functions";
-import { listAdminBetaReports, listMyBetaReports } from "../lib/beta-report.functions";
+import { getInboxBadgeCount } from "../lib/inbox.functions";
 
 export const Route = createFileRoute("/profile")({
   beforeLoad: requireAuth,
@@ -60,47 +58,19 @@ function Profile() {
   const [inboxOpen, setInboxOpen] = useState(false);
 
   const token = useAccessToken();
-  const checkAccess = useServerFn(checkAdminAccess);
-  const unreadFn = useServerFn(getInboxUnreadCount);
-  const listAdminReports = useServerFn(listAdminBetaReports);
-  const listMyReports = useServerFn(listMyBetaReports);
+  const badgeFn = useServerFn(getInboxBadgeCount);
 
-  const adminQuery = useQuery({
-    queryKey: ["admin", "access", token],
-    enabled: Boolean(token),
-    queryFn: async () => {
-      if (!token) return { admin: false };
-      return checkAccess({ data: { accessToken: token } });
-    },
-    staleTime: 5 * 60_000,
-  });
-
-  const unreadQuery = useQuery({
-    queryKey: ["inbox", "unread", token],
+  const inboxBadgeQuery = useQuery({
+    queryKey: ["inbox", "badge", token],
     enabled: Boolean(token),
     queryFn: async () => {
       if (!token) return { count: 0 };
-      return unreadFn({ data: { accessToken: token } });
+      return badgeFn({ data: { accessToken: token } });
     },
     refetchInterval: 60_000,
   });
 
-  const openReportsQuery = useQuery({
-    queryKey: ["beta-reports", "badge", token, adminQuery.data?.admin],
-    enabled: Boolean(token) && adminQuery.data !== undefined,
-    queryFn: async () => {
-      if (!token) return 0;
-      if (adminQuery.data?.admin) {
-        const rows = await listAdminReports({ data: { accessToken: token } });
-        return rows.filter((r) => r.status === "open").length;
-      }
-      const rows = await listMyReports({ data: { accessToken: token } });
-      return rows.filter((r) => r.status === "replied" && r.admin_reply).length;
-    },
-  });
-
-  const inboxBadge =
-    (unreadQuery.data?.count ?? 0) + (adminQuery.data?.admin ? (openReportsQuery.data ?? 0) : 0);
+  const inboxBadge = inboxBadgeQuery.data?.count ?? 0;
 
   const displayName = authUser?.user_metadata?.name ?? authUser?.email?.split("@")[0] ?? "You";
 
