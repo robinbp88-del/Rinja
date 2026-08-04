@@ -192,7 +192,8 @@ function Home() {
           What should I keep an eye on?
         </h1>
         <p className="mt-3 text-[14px] leading-snug text-muted-foreground">
-          1) Paste a page URL · 2) Highlight what matters · 3) I&apos;ll alert you
+          Paste a URL, highlight the text that matters, and I&apos;ll alert you
+          when that HTML text changes. Live JS counters may not work.
         </p>
       </section>
 

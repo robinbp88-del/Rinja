@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as WatchingRouteImport } from './routes/watching'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as LoginRouteImport } from './routes/login'
@@ -39,6 +41,11 @@ const WatchingRoute = WatchingRouteImport.update({
   path: '/watching',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
@@ -57,6 +64,11 @@ const SearchRoute = SearchRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PremiumRoute = PremiumRouteImport.update({
@@ -135,10 +147,12 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/premium': typeof PremiumRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
+  '/terms': typeof TermsRoute
   '/watching': typeof WatchingRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
@@ -156,10 +170,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/premium': typeof PremiumRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
+  '/terms': typeof TermsRoute
   '/watching': typeof WatchingRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
@@ -178,10 +194,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/notifications': typeof NotificationsRoute
   '/premium': typeof PremiumRoute
+  '/privacy': typeof PrivacyRoute
   '/profile': typeof ProfileRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
   '/setup': typeof SetupRoute
+  '/terms': typeof TermsRoute
   '/watching': typeof WatchingRoute
   '/welcome': typeof WelcomeRoute
   '/api/check-watches': typeof ApiCheckWatchesRoute
@@ -201,10 +219,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/premium'
+    | '/privacy'
     | '/profile'
     | '/search'
     | '/settings'
     | '/setup'
+    | '/terms'
     | '/watching'
     | '/welcome'
     | '/api/check-watches'
@@ -222,10 +242,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/premium'
+    | '/privacy'
     | '/profile'
     | '/search'
     | '/settings'
     | '/setup'
+    | '/terms'
     | '/watching'
     | '/welcome'
     | '/api/check-watches'
@@ -243,10 +265,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/notifications'
     | '/premium'
+    | '/privacy'
     | '/profile'
     | '/search'
     | '/settings'
     | '/setup'
+    | '/terms'
     | '/watching'
     | '/welcome'
     | '/api/check-watches'
@@ -265,10 +289,12 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   NotificationsRoute: typeof NotificationsRoute
   PremiumRoute: typeof PremiumRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProfileRoute: typeof ProfileRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
   SetupRoute: typeof SetupRoute
+  TermsRoute: typeof TermsRoute
   WatchingRoute: typeof WatchingRoute
   WelcomeRoute: typeof WelcomeRoute
   ApiCheckWatchesRoute: typeof ApiCheckWatchesRoute
@@ -291,6 +317,13 @@ declare module '@tanstack/react-router' {
       path: '/watching'
       fullPath: '/watching'
       preLoaderRoute: typeof WatchingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -319,6 +352,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/premium': {
@@ -425,10 +465,12 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   NotificationsRoute: NotificationsRoute,
   PremiumRoute: PremiumRoute,
+  PrivacyRoute: PrivacyRoute,
   ProfileRoute: ProfileRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
   SetupRoute: SetupRoute,
+  TermsRoute: TermsRoute,
   WatchingRoute: WatchingRoute,
   WelcomeRoute: WelcomeRoute,
   ApiCheckWatchesRoute: ApiCheckWatchesRoute,

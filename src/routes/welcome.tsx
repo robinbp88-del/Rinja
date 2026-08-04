@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Apple, Loader2, Mail } from "lucide-react";
 
@@ -70,9 +70,9 @@ function Welcome() {
           what matters.
         </h1>
         <p className="mt-5 max-w-xs text-[16px] leading-snug text-muted-foreground">
-          Watch any webpage.
+          Watch text on a webpage.
           <br />
-          Get notified when it changes.
+          Get notified when it changes in the page HTML.
         </p>
 
         <ol className="mt-6 w-full max-w-xs space-y-2 text-left text-[13px] text-muted-foreground">
@@ -82,11 +82,11 @@ function Welcome() {
           </li>
           <li className="flex gap-3 rounded-2xl border border-border/70 bg-card/50 px-3.5 py-2.5">
             <span className="font-semibold text-primary">2</span>
-            <span>Tap what you want me to watch</span>
+            <span>Tap the text you want me to watch</span>
           </li>
           <li className="flex gap-3 rounded-2xl border border-border/70 bg-card/50 px-3.5 py-2.5">
             <span className="font-semibold text-primary">3</span>
-            <span>Get an alert when it changes</span>
+            <span>Get an alert when that text changes</span>
           </li>
         </ol>
       </div>
@@ -129,7 +129,15 @@ function Welcome() {
         </button>
 
         <p className="mt-2 text-center text-[11px] text-muted-foreground">
-          By continuing you agree to our Terms and Privacy Policy.
+          By continuing you agree to our{" "}
+          <Link to="/terms" className="underline underline-offset-2">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="underline underline-offset-2">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </div>
     </div>

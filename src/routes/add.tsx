@@ -96,7 +96,8 @@ function AddWatch() {
         Paste the page URL
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Then highlight what matters in the in-app preview.
+        Then highlight the text that matters. Rinja tracks that text in the page
+        HTML — live JS-only counters may not update.
       </p>
 
       <div className="mt-6 flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">

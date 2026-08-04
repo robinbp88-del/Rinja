@@ -12,6 +12,7 @@ import {
   Settings,
   LifeBuoy,
   Shield,
+  FileText,
   LogOut,
   Loader2,
 } from "lucide-react";
@@ -150,8 +151,22 @@ function Profile() {
             <span className="text-xs text-muted-foreground">Alerts</span>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-          <Row icon={LifeBuoy} label="Support" />
-          <Row icon={Shield} label="Privacy" />
+          <Link
+            to="/privacy"
+            className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-accent"
+          >
+            <Shield className="h-4 w-4 text-muted-foreground" />
+            <span className="flex-1 text-sm">Privacy</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+          <Link
+            to="/terms"
+            className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-accent"
+          >
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="flex-1 text-sm">Terms</span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
         </Group>
       </section>
 

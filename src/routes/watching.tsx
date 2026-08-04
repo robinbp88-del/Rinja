@@ -1,15 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Bell, ChevronRight, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { RinjaMascot } from "../components/RinjaMascot";
 import { requireAuth } from "../lib/requireAuth";
 import { watchConditionLabel } from "../lib/watch-labels";
 import { getWatchById } from "../lib/watches";
+import {
+  enablePushNotifications,
+  hasActivePushSubscription,
+  pushSupported,
+} from "../lib/push-client";
 
 const searchSchema = z.object({
   id: z.string().min(1),
 });
+
+const PUSH_DISMISS_KEY = "rinja.pushPrompt.dismissed";
 
 export const Route = createFileRoute("/watching")({
   beforeLoad: requireAuth,
@@ -27,6 +35,45 @@ function WatchingSuccessPage() {
   });
 
   const watch = watchQuery.data;
+
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMessage, setPushMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!pushSupported()) return;
+      if (localStorage.getItem(PUSH_DISMISS_KEY) === "1") return;
+      const active = await hasActivePushSubscription();
+      if (!cancelled && !active) setShowPushPrompt(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const enablePush = async () => {
+    if (pushBusy) return;
+    setPushBusy(true);
+    setPushMessage("");
+    try {
+      const res = await enablePushNotifications();
+      if (!res.ok) {
+        setPushMessage(res.error ?? "Could not enable push.");
+        return;
+      }
+      setShowPushPrompt(false);
+      setPushMessage("Push on — you’ll get lock-screen alerts.");
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const dismissPush = () => {
+    localStorage.setItem(PUSH_DISMISS_KEY, "1");
+    setShowPushPrompt(false);
+  };
 
   return (
     <div className="flex min-h-screen flex-col px-6 pt-6 screen-safe">
@@ -69,7 +116,8 @@ function WatchingSuccessPage() {
           I&apos;m watching!
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          I&apos;ll let you know when something changes.
+          I&apos;ll check the page on a schedule and alert you when that
+          highlighted text changes in the page HTML.
         </p>
       </div>
 
@@ -99,6 +147,50 @@ function WatchingSuccessPage() {
           </div>
         </div>
       )}
+
+      {showPushPrompt ? (
+        <div className="mt-4 rounded-3xl border border-primary/35 bg-primary/10 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
+              <Bell className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Get lock-screen alerts</p>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Turn on push so you notice changes even when Rinja is closed.
+                Best from the installed home-screen app.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  disabled={pushBusy}
+                  onClick={() => void enablePush()}
+                  className="flex h-10 flex-1 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60"
+                >
+                  {pushBusy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Enable push"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={pushBusy}
+                  onClick={dismissPush}
+                  className="flex h-10 flex-1 items-center justify-center rounded-full border border-border bg-card text-sm font-semibold"
+                >
+                  Not now
+                </button>
+              </div>
+              {pushMessage ? (
+                <p className="mt-2 text-[12px] text-destructive">{pushMessage}</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : pushMessage ? (
+        <p className="mt-4 text-center text-[13px] text-primary">{pushMessage}</p>
+      ) : null}
 
       <div className="mt-auto flex flex-col gap-2 pb-8 pt-8">
         {watch ? (

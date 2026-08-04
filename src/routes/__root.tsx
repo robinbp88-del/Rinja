@@ -69,12 +69,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Rinja — Never miss what matters" },
       {
         name: "description",
-        content: "Watch any page. Get alerted when something changes.",
+        content: "Watch page text. Get alerted when that HTML content changes.",
       },
       { property: "og:title", content: "Rinja — Never miss what matters" },
       {
         property: "og:description",
-        content: "Watch any page. Get alerted when something changes.",
+        content: "Watch page text. Get alerted when that HTML content changes.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
