@@ -8,6 +8,7 @@ import {
   markAllNotificationsRead,
   type DatabaseNotification,
 } from "../lib/notifications";
+import { clearAppBadge } from "../lib/app-badge";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
 
@@ -42,8 +43,9 @@ function Notifications() {
     if (!user || notifications.length === 0) return;
 
     markAllNotificationsRead()
-      .then(() => {
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      .then(async () => {
+        await clearAppBadge();
+        await queryClient.invalidateQueries({ queryKey: ["notifications"] });
       })
       .catch(console.error);
   }, [user, notifications.length, queryClient]);

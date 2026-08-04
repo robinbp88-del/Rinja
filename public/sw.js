@@ -1,6 +1,19 @@
-/* Rinja PWA service worker — shell cache + Web Push */
-const CACHE = "rinja-shell-v2";
+/* Rinja PWA service worker — shell cache + Web Push + app icon badge */
+const CACHE = "rinja-shell-v3";
 const PRECACHE = ["/", "/home", "/manifest.webmanifest", "/icons/icon-192.png"];
+
+async function applyAppBadge(count) {
+  const n = Math.max(0, Number(count) || 0);
+  try {
+    if (n > 0 && self.navigator?.setAppBadge) {
+      await self.navigator.setAppBadge(n);
+    } else if (n <= 0 && self.navigator?.clearAppBadge) {
+      await self.navigator.clearAppBadge();
+    }
+  } catch {
+    // Badging API unavailable on this device.
+  }
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -21,6 +34,14 @@ self.addEventListener("activate", (event) => {
       )
       .then(() => self.clients.claim()),
   );
+});
+
+self.addEventListener("message", (event) => {
+  const data = event.data;
+  if (!data || typeof data !== "object") return;
+  if (data.type === "SET_BADGE") {
+    event.waitUntil(applyAppBadge(data.count));
+  }
 });
 
 self.addEventListener("fetch", (event) => {
@@ -50,6 +71,7 @@ self.addEventListener("push", (event) => {
     title: "Rinja",
     body: "Something changed on a watch.",
     url: "/notifications",
+    unread: 1,
   };
 
   try {
@@ -65,14 +87,22 @@ self.addEventListener("push", (event) => {
     }
   }
 
+  const unread =
+    typeof data.unread === "number" && data.unread > 0 ? data.unread : 1;
+
   event.waitUntil(
-    self.registration.showNotification(data.title || "Rinja", {
-      body: data.body,
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
-      data: { url: data.url || "/notifications" },
-      vibrate: [120, 60, 120],
-    }),
+    Promise.all([
+      self.registration.showNotification(data.title || "Rinja", {
+        body: data.body,
+        icon: "/icons/icon-192.png",
+        badge: "/icons/icon-192.png",
+        tag: "rinja-alert",
+        renotify: true,
+        data: { url: data.url || "/notifications" },
+        vibrate: [120, 60, 120],
+      }),
+      applyAppBadge(unread),
+    ]),
   );
 });
 

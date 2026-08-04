@@ -1,6 +1,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Home, Search, Bell, User } from "lucide-react";
+import { syncAppBadge } from "../lib/app-badge";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
 
@@ -23,6 +25,11 @@ export function BottomNav() {
   });
 
   const unread = unreadQuery.data ?? 0;
+
+  useEffect(() => {
+    if (!user || unreadQuery.isLoading) return;
+    void syncAppBadge(unread);
+  }, [user, unread, unreadQuery.isLoading]);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md screen-safe">

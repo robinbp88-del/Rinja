@@ -88,7 +88,8 @@ function SettingsPage() {
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           In-app alerts always work. Turn on push for lock-screen notifications
-          like Messenger.
+          and a number on the home-screen icon (installed PWA). If the phone
+          dies or you reinstall, turn push on again here.
         </p>
 
         <div className="mt-5 rounded-2xl border border-border bg-card px-4 py-3.5">

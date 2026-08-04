@@ -41,6 +41,12 @@ export async function sendPushToUser(
   const rows = (data ?? []) as SubRow[];
   if (rows.length === 0) return { sent: 0, removed: 0 };
 
+  const { count: unreadCount } = await supabase
+    .from("notifications")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("read", false);
+
   const webpush = (await import("web-push")).default;
   webpush.setVapidDetails(subject, publicKey, privateKey);
 
@@ -48,6 +54,7 @@ export async function sendPushToUser(
     title: payload.title,
     body: payload.body,
     url: payload.url ?? "/notifications",
+    unread: Math.max(1, unreadCount ?? 1),
   });
 
   let sent = 0;
