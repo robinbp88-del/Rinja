@@ -1,12 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { Home, Search, Bell, User } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Home, Search, Bell, User, Shield } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { syncAppBadge } from "../lib/app-badge";
+import { checkAdminAccess } from "../lib/admin.functions";
 import { getUnreadNotificationCount } from "../lib/notifications";
 import { useAuth } from "../providers/AuthProvider";
+import { supabase } from "../lib/supabase";
 
-const tabs = [
+const baseTabs = [
   { to: "/home", icon: Home, label: "Home" },
   { to: "/search", icon: Search, label: "Search" },
   { to: "/notifications", icon: Bell, label: "Alerts" },
@@ -16,6 +19,42 @@ const tabs = [
 export function BottomNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { user } = useAuth();
+  const checkAccess = useServerFn(checkAdminAccess);
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setToken(null);
+      return;
+    }
+    void supabase.auth.getSession().then(({ data }) => {
+      setToken(data.session?.access_token ?? null);
+    });
+  }, [user]);
+
+  const adminQuery = useQuery({
+    queryKey: ["admin", "access", token],
+    enabled: Boolean(token),
+    queryFn: async () => {
+      if (!token) return { admin: false };
+      return checkAccess({ data: { accessToken: token } });
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const isAdmin = adminQuery.data?.admin === true;
+
+  const tabs = useMemo(
+    () =>
+      isAdmin
+        ? [
+            ...baseTabs.slice(0, 3),
+            { to: "/admin" as const, icon: Shield, label: "Admin" },
+            baseTabs[3],
+          ]
+        : [...baseTabs],
+    [isAdmin],
+  );
 
   const unreadQuery = useQuery({
     queryKey: ["notifications", "unread", user?.id],
@@ -31,19 +70,26 @@ export function BottomNav() {
     void syncAppBadge(unread);
   }, [user, unread, unreadQuery.isLoading]);
 
+  const cols = tabs.length;
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-md screen-safe">
       <div className="mx-4 mb-3 rounded-full border border-border bg-card/80 px-2 py-2 backdrop-blur-xl">
-        <ul className="grid grid-cols-4">
+        <ul
+          className="grid"
+          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+        >
           {tabs.map(({ to, icon: Icon, label }) => {
-            const active = pathname === to;
+            const active =
+              pathname === to ||
+              (to === "/admin" && pathname.startsWith("/admin"));
             const showBadge = to === "/notifications" && unread > 0;
 
             return (
               <li key={to} className="flex justify-center">
                 <Link
                   to={to}
-                  className={`flex flex-col items-center gap-0.5 rounded-full px-4 py-1.5 text-[10px] transition ${
+                  className={`flex flex-col items-center gap-0.5 rounded-full px-2 py-1.5 text-[10px] transition ${
                     active ? "text-primary" : "text-muted-foreground"
                   }`}
                 >

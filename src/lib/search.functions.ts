@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { SearchIntent, SearchResponse, SearchResult, Availability } from "./search/types";
+import { createServiceClient } from "./supabase.server";
 
 const InputSchema = z.object({
   query: z.string().min(1).max(300),
@@ -83,6 +84,17 @@ export const intelligentSearch = createServerFn({ method: "POST" })
     );
     if (userError || !userData.user) {
       throw new Error("Unauthorized");
+    }
+
+    // Best-effort search analytics for admin backoffice.
+    try {
+      const service = createServiceClient();
+      await service.from("search_events").insert({
+        user_id: userData.user.id,
+        query: data.query.trim().slice(0, 300),
+      });
+    } catch (logErr) {
+      console.warn("search_events log failed:", logErr);
     }
 
     const key = process.env.LOVABLE_API_KEY;

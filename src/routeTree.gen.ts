@@ -21,6 +21,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as InterestsRouteImport } from './routes/interests'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as HighlightRouteImport } from './routes/highlight'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AddRouteImport } from './routes/add'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WatchIdRouteImport } from './routes/watch.$id'
@@ -88,6 +89,11 @@ const HighlightRoute = HighlightRouteImport.update({
   path: '/highlight',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AddRoute = AddRouteImport.update({
   id: '/add',
   path: '/add',
@@ -122,6 +128,7 @@ const ApiCheckWatchesRoute = ApiCheckWatchesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
+  '/admin': typeof AdminRoute
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
   '/interests': typeof InterestsRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/add': typeof AddRoute
+  '/admin': typeof AdminRoute
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
   '/interests': typeof InterestsRoute
@@ -163,6 +171,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/add': typeof AddRoute
+  '/admin': typeof AdminRoute
   '/highlight': typeof HighlightRoute
   '/home': typeof HomeRoute
   '/interests': typeof InterestsRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/add'
+    | '/admin'
     | '/highlight'
     | '/home'
     | '/interests'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/add'
+    | '/admin'
     | '/highlight'
     | '/home'
     | '/interests'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/add'
+    | '/admin'
     | '/highlight'
     | '/home'
     | '/interests'
@@ -246,6 +258,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AddRoute: typeof AddRoute
+  AdminRoute: typeof AdminRoute
   HighlightRoute: typeof HighlightRoute
   HomeRoute: typeof HomeRoute
   InterestsRoute: typeof InterestsRoute
@@ -350,6 +363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HighlightRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/add': {
       id: '/add'
       path: '/add'
@@ -398,6 +418,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AddRoute: AddRoute,
+  AdminRoute: AdminRoute,
   HighlightRoute: HighlightRoute,
   HomeRoute: HomeRoute,
   InterestsRoute: InterestsRoute,

@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import type { User } from "@supabase/supabase-js";
+import { touchUserActivity } from "../lib/activity";
 import { supabase } from "../lib/supabase";
 
 type AuthContextType = {
@@ -39,6 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setError(null);
           setUser(data.session?.user ?? null);
+          if (data.session?.user) {
+            void touchUserActivity();
+          }
         }
       })
       .catch((err: unknown) => {
@@ -56,11 +60,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setError(null);
       setLoading(false);
+      if (session?.user) {
+        void touchUserActivity();
+      }
     });
+
+    const activityTimer = window.setInterval(() => {
+      void touchUserActivity();
+    }, 10 * 60 * 1000);
 
     return () => {
       cancelled = true;
       subscription.unsubscribe();
+      window.clearInterval(activityTimer);
     };
   }, []);
 
