@@ -10,7 +10,6 @@ import {
   Crown,
   Palette,
   Settings,
-  LifeBuoy,
   Shield,
   FileText,
   LogOut,
