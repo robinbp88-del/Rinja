@@ -8,7 +8,6 @@ import {
   markAllNotificationsRead,
   type DatabaseNotification,
 } from "../lib/notifications";
-import { clearAppBadge } from "../lib/app-badge";
 import { useAuth } from "../providers/AuthProvider";
 import { requireAuth } from "../lib/requireAuth";
 
@@ -39,16 +38,25 @@ function Notifications() {
     hasAlerts && isChangeAlert(notifications[0]!);
   const hasChangeCards = notifications.some(isChangeAlert);
 
+  // Mark read when leaving Alerts — keeps in-app badge and home-icon badge
+  // in sync while unread count is still visible.
   useEffect(() => {
-    if (!user || notifications.length === 0) return;
+    if (!user) return;
 
-    markAllNotificationsRead()
-      .then(async () => {
-        await clearAppBadge();
-        await queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      })
-      .catch(console.error);
-  }, [user, notifications.length, queryClient]);
+    return () => {
+      void markAllNotificationsRead()
+        .then(async () => {
+          queryClient.setQueryData(
+            ["notifications", "unread", user.id],
+            0,
+          );
+          await queryClient.invalidateQueries({
+            queryKey: ["notifications"],
+          });
+        })
+        .catch(console.error);
+    };
+  }, [user, queryClient]);
 
   return (
     <div className="min-h-screen pb-32">

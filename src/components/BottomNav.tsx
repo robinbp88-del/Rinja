@@ -65,10 +65,33 @@ export function BottomNav() {
 
   const unread = unreadQuery.data ?? 0;
 
+  // Home-screen icon badge = same number as Alerts tab (single source: unread).
   useEffect(() => {
     if (!user || unreadQuery.isLoading) return;
     void syncAppBadge(unread);
   }, [user, unread, unreadQuery.isLoading]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const sync = () => {
+      void unreadQuery.refetch().then((result) => {
+        const count = result.data ?? 0;
+        void syncAppBadge(count);
+      });
+    };
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [user, unreadQuery]);
 
   const cols = tabs.length;
 
