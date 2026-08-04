@@ -1,8 +1,4 @@
-import {
-  createFileRoute,
-  Link,
-  useNavigate,
-} from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -18,9 +14,11 @@ import {
 
 import { BottomNav } from "../components/BottomNav";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { BetaBadge, BetaBanner, ReportProblemButton } from "../components/BetaChrome";
 import { useStore } from "../lib/store";
 import { signOut } from "../lib/auth";
 import { getWatches } from "../lib/watches";
+import { toUserError } from "../lib/user-errors";
 import { useAuth } from "../providers/AuthProvider";
 import { useQuery } from "@tanstack/react-query";
 import { requireAuth } from "../lib/requireAuth";
@@ -49,10 +47,7 @@ function Profile() {
   const [logoutError, setLogoutError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const displayName =
-    authUser?.user_metadata?.name ??
-    authUser?.email?.split("@")[0] ??
-    "You";
+  const displayName = authUser?.user_metadata?.name ?? authUser?.email?.split("@")[0] ?? "You";
 
   const email = authUser?.email ?? "Signed in";
 
@@ -75,11 +70,7 @@ function Profile() {
     } catch (error) {
       console.error("Logout failed:", error);
 
-      setLogoutError(
-        error instanceof Error
-          ? error.message
-          : "Could not log out. Please try again.",
-      );
+      setLogoutError(toUserError(error, "Could not log out. Please try again."));
     } finally {
       setLoggingOut(false);
     }
@@ -88,9 +79,11 @@ function Profile() {
   return (
     <div className="min-h-screen pb-32">
       <header className="px-6 pt-12 screen-safe">
-        <h1 className="text-[28px] font-semibold tracking-tight">
-          Profile
-        </h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-[28px] font-semibold tracking-tight">Profile</h1>
+          <BetaBadge />
+        </div>
+        <BetaBanner className="mt-2" />
       </header>
 
       <section className="mt-6 px-6">
@@ -100,13 +93,9 @@ function Profile() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">
-              {displayName}
-            </p>
+            <p className="truncate text-sm font-medium">{displayName}</p>
 
-            <p className="truncate text-xs text-muted-foreground">
-              {email}
-            </p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
           </div>
 
           <span className="rounded-full bg-primary/15 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-primary">
@@ -125,13 +114,9 @@ function Profile() {
           </div>
 
           <div className="flex-1">
-            <p className="text-sm font-semibold">
-              Try Rinja Premium
-            </p>
+            <p className="text-sm font-semibold">Try Rinja Premium</p>
 
-            <p className="text-xs text-muted-foreground">
-              Unlimited watches. 7-day free trial.
-            </p>
+            <p className="text-xs text-muted-foreground">Unlimited watches. 7-day free trial.</p>
           </div>
 
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -169,7 +154,8 @@ function Profile() {
         </Group>
       </section>
 
-      <section className="mt-6 px-6">
+      <section className="mt-6 px-6 space-y-3">
+        <ReportProblemButton />
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
@@ -189,11 +175,7 @@ function Profile() {
           )}
         </button>
 
-        {logoutError && (
-          <p className="mt-3 text-center text-xs text-destructive">
-            {logoutError}
-          </p>
-        )}
+        {logoutError && <p className="mt-3 text-center text-xs text-destructive">{logoutError}</p>}
       </section>
 
       <ConfirmDialog
@@ -239,11 +221,7 @@ function Row({
 
       <span className="flex-1 text-sm">{label}</span>
 
-      {hint && (
-        <span className="text-xs text-muted-foreground">
-          {hint}
-        </span>
-      )}
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
 
       <ChevronRight className="h-4 w-4 text-muted-foreground" />
     </button>

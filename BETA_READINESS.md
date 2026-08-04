@@ -20,54 +20,22 @@ Status legend: **PASS** · **FAIL** · **NEEDS MANUAL TEST** · **IN PROGRESS**
 - Admin gate server-validated (`admin.functions.ts`).
 - Outbound SSRF guard: scheme/port/creds/private IP/DNS, timeout, size cap, redirect re-validation (`outbound-url.ts`).
 
-### Uncertain
+### Uncertain / manual
 
-- Whether migrations 001–009 are applied on the live Supabase project (code falls back to weaker legacy paths if RPCs missing).
+- Whether migrations 001–009 are applied on the live Supabase project.
 - Production secrets: `MONITOR_CRON_SECRET`, VAPID, optional Resend.
 - Google OAuth redirect allowlist for production `/home`.
-- How often real beta sites fail as `js_shell` / empty HTML.
 
-### Critical issues
+### Critical issues addressed in later phases
 
-1. **Open `/api/proxy`** — SSRF mitigated, but unauthenticated egress abuse risk.
-2. **Email half-wired** — server paths exist; Settings UI does not expose digest; default `none`. Treat as off.
-3. **Cron depends on secrets + migration 005** — without them, monitoring degrades or 503s.
-4. **`VITE_ADMIN_EMAILS`** can ship allowlist into the client bundle.
-5. **No automated tests**; no `test` / `typecheck` scripts.
-6. **Large PNG mascots** (~1.2 MB each) hurt mobile first load.
-7. **No fetch retry** on transient failures (timeouts exist).
-8. **Legacy apply path** does not update `consecutive_failures` / `last_success_at` / dedupe.
-
-### Recommended fix order
-
-1. Lock down proxy + timing-safe cron secret compare.
-2. Harden error handling, retries, legacy apply health fields.
-3. Confirm migrations + cron env; document ops; admin manual run.
-4. Vitest + typecheck scripts; green lint/typecheck/test/build.
-5. Compress images / lazy-load heavy assets.
-6. Admin beta health overview.
-7. Discrete BETA badge, report problem, clear fail/empty/loading states.
-
-### Env vars (names only — never commit values)
-
-| Name | Where | Purpose |
-|------|--------|---------|
-| `VITE_SUPABASE_URL` | Client | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Client | Anon key (RLS) |
-| `VITE_VAPID_PUBLIC_KEY` | Client | Web Push public key |
-| `SUPABASE_URL` | Server | Supabase URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Service role — never `VITE_*` |
-| `MONITOR_CRON_SECRET` | Server + GitHub secret | Auth for `/api/check-watches` |
-| `MONITOR_URL` | GitHub Actions | Full URL to `POST` monitor endpoint |
-| `ADMIN_EMAILS` | Server | Comma-separated admin emails |
-| `VAPID_PRIVATE_KEY` | Server | Web Push private key |
-| `VAPID_SUBJECT` | Server | `mailto:` or URL for VAPID |
-| `RESEND_API_KEY` | Server | Optional email (off by default) |
-| `EMAIL_FROM` | Server | Optional From address |
-| `MONITOR_URL_DIGEST` | GitHub Actions | Optional daily digest endpoint |
-| `LOVABLE_API_KEY` | Server | Optional AI/search |
-
-Avoid: `VITE_ADMIN_EMAILS` (prefer `ADMIN_EMAILS` only).
+1. Open `/api/proxy` → ticket + cookie auth (**PASS** code; **NEEDS MANUAL TEST**).
+2. Email half-wired → still off by default (**PASS** as documented off).
+3. Cron / migration 005 → documented; legacy path improved.
+4. `VITE_ADMIN_EMAILS` removed from allowlist reader (**PASS** — use `ADMIN_EMAILS` only).
+5. Automated tests + scripts (**PASS**).
+6. Large PNGs → WebP (**PASS**).
+7. Fetch retry with backoff (**PASS**).
+8. Legacy apply health fields (**PASS**).
 
 ---
 
@@ -84,90 +52,141 @@ Avoid: `VITE_ADMIN_EMAILS` (prefer `ADMIN_EMAILS` only).
 
 | Requirement | Status |
 |-------------|--------|
-| No raw Supabase/fetch errors to users | IN PROGRESS |
-| Understandable messages + server-side technical logs | IN PROGRESS |
-| One failed page must not stop other watches | PASS (per-watch try/catch in engine) |
+| No raw Supabase/fetch errors to users | PASS |
+| Understandable messages + server-side technical logs | PASS |
+| One failed page must not stop other watches | PASS |
 | Timeout on external requests | PASS (12s) |
-| Limited retry with backoff | IN PROGRESS |
-| Dedupe alerts for same change | PASS (if migration 005 applied) |
-| Consecutive failures + last success | PASS (if migration 005; legacy path incomplete) |
-| Mark watch problematic after repeated failures | IN PROGRESS |
+| Limited retry with backoff | PASS |
+| Dedupe alerts for same change | PASS (migration 005 + legacy) |
+| Consecutive failures + last success | PASS |
+| Mark watch problematic after repeated failures | PASS (badge Unstable ≥3) |
 
 ### Fase 3 — Sikkerhet
 
 | Requirement | Status |
 |-------------|--------|
-| RLS on user tables | PASS (migrations present; NEEDS MANUAL TEST on prod) |
-| Users only own data | PASS (RLS + server admin) |
+| RLS on user tables | PASS (migrations; NEEDS MANUAL TEST on prod) |
+| Users only own data | PASS |
 | Admin validated server-side | PASS |
 | Service role never on client | PASS |
 | `MONITOR_CRON_SECRET` required | PASS |
-| Safe secret compare | IN PROGRESS |
+| Safe secret compare | PASS (`timingSafeEqual`) |
 | Block localhost / private / metadata | PASS |
 | Redirect re-validation | PASS |
 | Max response size | PASS (2 MB) |
 | http(s) only | PASS |
-| No secrets in logs | NEEDS MANUAL TEST |
-| Proxy not open to anonymous abuse | FAIL → fix |
+| No secrets in logs | PASS (code review; NEEDS MANUAL TEST) |
+| Proxy not open to anonymous abuse | PASS (ticket + HttpOnly cookie) |
 
 ### Fase 4 — Monitorering
 
 | Requirement | Status |
 |-------------|--------|
-| Cron URL documented | IN PROGRESS |
-| Env vars documented | PASS (table above) |
-| Only due watches checked | PASS (claim RPC / due filter) |
+| Cron URL documented | PASS (below) |
+| Env vars documented | PASS |
+| Only due watches checked | PASS |
 | No parallel double-check (claim/lease) | PASS (if 005 applied) |
-| Next check time updated | PASS (`last_checked` + frequency) |
-| Run summary logged | IN PROGRESS |
-| No alert if normalized value unchanged | PASS (`valuesEqual`) |
-| Safe admin manual test | IN PROGRESS |
+| Next check time updated | PASS |
+| Run summary logged | PASS (`monitor_run` JSON log) |
+| No alert if normalized value unchanged | PASS |
+| Safe admin manual test | PASS (Admin → Run due / Force) |
 
 ### Fase 5 — Tester
 
 | Requirement | Status |
 |-------------|--------|
-| Vitest configured | FAIL → fix |
-| Core unit tests | FAIL → fix |
-| `test` / `test:watch` / `typecheck` scripts | FAIL → fix |
-| lint + typecheck + test + build green | IN PROGRESS |
+| Vitest configured | PASS |
+| Core unit tests | PASS (25 tests) |
+| `test` / `test:watch` / `typecheck` scripts | PASS |
+| lint + typecheck + test + build green | NEEDS MANUAL TEST (verify after deploy) |
 
 ### Fase 6 — Ytelse
 
 | Requirement | Status |
 |-------------|--------|
-| Compress large PNGs | FAIL → fix |
-| Lazy-load heavy assets / routes | IN PROGRESS |
-| Document before/after sizes | IN PROGRESS |
+| Compress large PNGs | PASS |
+| Lazy-load heavy assets / routes | PASS (per-variant WebP import) |
+| Document before/after sizes | PASS (below) |
+
+**Mascot assets (before → after WebP):**
+
+| File | Before | After |
+|------|--------|-------|
+| binoculars | 1162 KB | 26 KB |
+| rinja-guard | 1187 KB | 26 KB |
+| rinja-laptop | 1266 KB | 41 KB |
+| rinja-notify | 1213 KB | 31 KB |
+| rinja-relax | 1458 KB | 68 KB |
+| rinja-secure | 1245 KB | 40 KB |
+| rinja | 1193 KB | 34 KB |
+| **Total** | **~8.7 MB** | **~266 KB** |
 
 ### Fase 7 — Observability
 
 | Requirement | Status |
 |-------------|--------|
-| Admin beta health overview | FAIL → fix |
+| Admin beta health overview | PASS |
 
 ### Fase 8 — Beta polish
 
 | Requirement | Status |
 |-------------|--------|
-| Discrete BETA badge | FAIL → fix |
-| Report a problem | FAIL → fix |
-| Short beta message | FAIL → fix |
-| Pause / delete watch | PASS (existing) |
-| Clear failing watch status | IN PROGRESS |
-| Empty + loading states | IN PROGRESS |
+| Discrete BETA badge | PASS |
+| Report a problem | PASS (Profile) |
+| Short beta message | PASS |
+| Pause / delete watch | PASS |
+| Clear failing watch status | PASS |
+| Empty + loading states | PASS (existing + improved errors) |
 
 ---
 
 ## Cron (production)
 
-- **URL:** `POST https://<your-host>/api/check-watches`
+- **URL:** `POST https://rinja.vercel.app/api/check-watches` (or your host)
 - **Header:** `Authorization: Bearer <MONITOR_CRON_SECRET>`
-- **Manual force (admin/local only):** `?force=1` — checks claimed watches regardless of due time
-- **Schedule:** `.github/workflows/monitor.yml` every ~15 minutes (GitHub may delay)
+- **Manual force (admin/local only):** `?force=1` or Admin → Force run
+- **Schedule:** `.github/workflows/monitor.yml` every ~15 minutes
+
+### Env vars (names only — never commit values)
+
+| Name | Where | Purpose |
+|------|--------|---------|
+| `VITE_SUPABASE_URL` | Client | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Client | Anon key (RLS) |
+| `VITE_VAPID_PUBLIC_KEY` | Client | Web Push public key |
+| `SUPABASE_URL` | Server | Supabase URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server only | Service role — never `VITE_*` |
+| `MONITOR_CRON_SECRET` | Server + GitHub | Auth for monitor + proxy tickets fallback |
+| `MONITOR_URL` | GitHub Actions | Full URL to `POST` monitor endpoint |
+| `ADMIN_EMAILS` | Server | Comma-separated admin emails |
+| `PROXY_TICKET_SECRET` | Server (optional) | Prefer dedicated secret for proxy tickets |
+| `VAPID_PRIVATE_KEY` | Server | Web Push private key |
+| `VAPID_SUBJECT` | Server | `mailto:` or URL for VAPID |
+| `RESEND_API_KEY` / `EMAIL_FROM` | Server | Optional email (off by default) |
+
+Avoid: `VITE_ADMIN_EMAILS`.
 
 ---
 
 ## Manual test plan (mobile)
 
-See end of this file after implementation phases complete.
+1. Install / open https://rinja.vercel.app as PWA (Add to Home Screen).
+2. Sign in with Google and with email once each.
+3. Paste a simple static page URL → Highlight → select text → save.
+4. Confirm watch appears on Home with status Watching / Pending.
+5. Open watch detail → Pause → Resume → Delete (confirm dialog).
+6. Create a paste-text watch and a whole-page watch.
+7. Enable push in Settings; leave app; trigger a known HTML change; confirm alert + push.
+8. Confirm whitespace-only change does **not** alert.
+9. Open a JS-heavy SPA; expect Issue / Unstable after fails — watch not deleted.
+10. Profile → Report a problem → send a short note.
+11. As admin: `/admin` → see health stats → Run due checks.
+12. Confirm unauthenticated `GET /api/proxy?url=https://example.com` returns 401.
+13. Confirm cron (or Force run) advances `last_checked` without duplicate alerts.
+
+### Pre-flight (you / ops)
+
+- [ ] Supabase migrations 001–009 applied
+- [ ] `ADMIN_EMAILS` set on Vercel (not `VITE_`)
+- [ ] GitHub secrets `MONITOR_URL` + `MONITOR_CRON_SECRET`
+- [ ] VAPID keys set if push is expected
