@@ -14,7 +14,13 @@ import {
 
 import { BottomNav } from "../components/BottomNav";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { BetaBadge, BetaBanner, ReportProblemButton } from "../components/BetaChrome";
+import {
+  BetaBadge,
+  BetaBanner,
+  ReportProblemButton,
+  AdminBetaInbox,
+  MyBetaReports,
+} from "../components/BetaChrome";
 import { useStore } from "../lib/store";
 import { signOut } from "../lib/auth";
 import { getWatches } from "../lib/watches";
@@ -103,6 +109,9 @@ function Profile() {
           </span>
         </div>
       </section>
+
+      <AdminBetaInbox />
+      <MyBetaReports />
 
       <section className="mt-6 px-6">
         <Link
